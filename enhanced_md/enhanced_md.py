@@ -34,7 +34,7 @@ class BaseElement(ABC):
 class Heading(BaseElement):
     def __init__(self):
         super().__init__()
-        self.elements = []  # List of elements that are inside the heading
+        self.elements = []  # git pullList of elements that are inside the heading
 
 
 class Paragraph(BaseElement):
