@@ -3,6 +3,8 @@ import re
 from typing import List
 
 import docx
+import networkx as nx
+import matplotlib.pyplot as plt
 
 from enhanced_md import enhanced_elements
 from enhanced_md.exceptions import UndefinedStyleFoundError
@@ -37,10 +39,6 @@ class EnhancedMD:
 		"""
 
 		self.build_doc_graph()
-
-	def __repr__(self):
-		# TODO
-		return print(self.doc_graph)
 
 	def _get_docx_metadata(self):
 		"""
@@ -138,8 +136,7 @@ class EnhancedMD:
 				if len(docx_content.rows) and len(docx_content.columns):
 					self._process_docx_table(docx_table=docx_content)
 
-			print(self.doc_graph)
-
+			print([x["directed_element"].item for x in self.doc_graph])
 
 	def _process_docx_paragraph(self, docx_paragraph: docx.text.paragraph.Paragraph):
 		"""
@@ -154,8 +151,6 @@ class EnhancedMD:
 		directed_element_type, hierarchy_level = self._detect_directed_element_type_and_hierarchy_level(
 			docx_paragraph=docx_paragraph
 		)
-
-		print(f"{'#' * hierarchy_level}{directed_element_type}")
 
 		if directed_element_type == "heading":
 			self._build_heading_subtree(
@@ -251,18 +246,22 @@ class EnhancedMD:
 		curr_heading = self.doc_graph.pop()
 		curr_children = [curr_heading["directed_element"]]
 		while curr_heading["hierarchy_level"] > hierarchy_level:
-			prev_heading = self.doc_graph[-1]
+			prev_heading = self.doc_graph.pop()
 
+			print(f"prev: {prev_heading['directed_element'].item}, curr: {curr_heading['directed_element'].item}")
+			print(curr_heading["hierarchy_level"], "/", hierarchy_level, "-->", prev_heading["hierarchy_level"])
 			if prev_heading["hierarchy_level"] == curr_heading["hierarchy_level"]:  # Vertical merge
 				prev_heading["directed_element"].next = curr_heading["directed_element"]
 				curr_heading["directed_element"].previous = prev_heading["directed_element"]
+				print("v_merge", prev_heading["directed_element"].next, curr_heading["directed_element"].previous)
 			else:  # Horizontal merge
 				prev_heading["directed_element"].children = curr_children
 				for children in curr_children:
 					children.parent = prev_heading["directed_element"]
+				print("h_merge", prev_heading["directed_element"].children)
 				curr_children = []
 
-			curr_heading = self.doc_graph.pop()
+			curr_heading = prev_heading
 			curr_children.append(curr_heading["directed_element"])
 
 	def _merge_non_heading_into_heading_subtree(self):
@@ -290,7 +289,7 @@ class EnhancedMD:
 		new_item = prev_item.copy()  # Make a copy to avoid pass by reference errors
 		new_item[-1] += 1
 
-		return  new_item
+		return new_item
 
 	@staticmethod
 	def _get_new_item_lower_level(prev_item):
@@ -501,4 +500,30 @@ class EnhancedMD:
 	def _process_docx_table(self, docx_table: docx.table):
 		pass
 
+	def visualize_doc_graph(self):
+		"""
 
+		"""
+
+		G = nx.DiGraph()
+
+		for node in self.doc_graph:
+			self.visualization_add_nodes_and_edges(G, node)
+
+		plt.figure(figsize=(10, 8))
+		nx.draw(G, with_labels=True, node_size=2000, node_color="skyblue", font_size=10, font_weight='bold', arrows=True)
+		plt.show()
+
+	def visualization_add_nodes_and_edges(self, G, node):
+		G.add_node('.'.join(map(str, node["directed_element"].item)))
+		if node["directed_element"].parent is not None:
+			G.add_edge('.'.join(map(str, node["directed_element"].parent.item)),
+			           '.'.join(map(str, node["directed_element"].item)))
+		if node["directed_element"].next is not None:
+			print("!!!!!")
+			G.add_edge('.'.join(map(str, node["directed_element"].item)),
+			           '.'.join(map(str, node["directed_element"].next.item)))
+		if node["directed_element"].children is not None:
+			print("!!!")
+			for child in node["directed_element"].children:
+				self.visualization_add_nodes_and_edges(G, child)
