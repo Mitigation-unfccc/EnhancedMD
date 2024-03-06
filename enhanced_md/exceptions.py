@@ -4,3 +4,6 @@ class UndefinedStyleFoundError(Exception):
 
 class UndefinedTextFormatError(Exception):
 	pass
+
+class EmptyDocxDocument(Exception):
+	pass
