@@ -5,13 +5,16 @@ from enhanced_md.exceptions import UndefinedTextFormatError
 
 
 class Content:
+
+	__slots__ = ["string", "font_style"]
+
 	def __init__(
 			self, string: str,
 			italic: bool = False, bold: bool = False, underline: bool = False, strike: bool = False,
 			superscript: bool = False, subscript: bool = False
 	):
 		#
-		self.string: str = string
+		self.string = string
 
 		# Font style properties
 		self.font_style = {
@@ -30,17 +33,18 @@ class Content:
 		# TODO
 		return self.string
 
+
 class BaseElement(ABC):
 	def __init__(
 			self, content: List[Content], text_format: str = "html"
 	):
 		#
-		self.content: List[Content] = content
+		self.content = content
 
 		#
-		self.text_format: str = text_format
+		self.text_format = text_format
 		self._check_text_format(text_format=self.text_format)
-		self.text: str = self._construct_text_from_content()
+		self._construct_text_from_content()
 
 	@staticmethod  # Not necessary to re-implement
 	def _check_text_format(text_format: str):
@@ -48,13 +52,13 @@ class BaseElement(ABC):
 			raise UndefinedTextFormatError(f"Undefined text format found: {text_format}"
 			                               f"\n Text format options = [\"html\", \"md\", \"plain\"")
 
-	def _construct_text_from_content(self) -> str:
+	def _construct_text_from_content(self):
 		if self.text_format == "html":
-			return self._construct_html_text_from_content()
+			self.text = self._construct_html_text_from_content()
 		elif self.text_format == "md":
-			return self._construct_md_text_from_content()
+			self.text = self._construct_md_text_from_content()
 		elif self.text_format == "plain":
-			return self._construct_plain_text_from_content()
+			self.text = self._construct_plain_text_from_content()
 
 	@abstractmethod
 	def _construct_html_text_from_content(self) -> str:
@@ -107,7 +111,7 @@ class Hyperlink(BaseElement):
 		return ""
 
 
-class DirectedElement(BaseElement):
+class DirectedElement(BaseElement, ABC):
 	def __init__(
 			self, content: List[Content], style: str, text_format: str = "html",
 			parent_element=None, children_elements=None, previous_element=None, next_element=None
