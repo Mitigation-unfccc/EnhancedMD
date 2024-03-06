@@ -1,10 +1,11 @@
 import logging
 import re
-from typing import List
+from typing import List, Tuple
 
 import docx
+from docx.text.paragraph import Paragraph as DocxParagraph
 
-from enhanced_md import enhanced_elements
+import enhanced_md.enhanced_elements as ee
 from enhanced_md.exceptions import UndefinedStyleFoundError
 
 
@@ -120,16 +121,14 @@ class EnhancedMD:
                 if len(docx_content.rows) and len(docx_content.columns):
                     self._process_docx_table(docx_table=docx_content)
 
-    def _process_docx_paragraph(
-            self, docx_paragraph: docx.text.paragraph.Paragraph
-    ) -> enhanced_elements.Heading | enhanced_elements.Paragraph:
+    def _process_docx_paragraph(self, docx_paragraph: DocxParagraph) -> ee.Heading | ee.Paragraph:
         """
 
 		:param docx_paragraph:
 		:return directed_element:
 		"""
-
         #
+        self.paragraphs = []
         paragraph_content = self._process_docx_paragraph_content(docx_paragraph=docx_paragraph)
 
         #
@@ -137,11 +136,11 @@ class EnhancedMD:
             docx_paragraph=docx_paragraph
         )
 
-        print(directed_element_type, hierarchy_level, "@", paragraph_content)
+        self.paragraphs.append(paragraph_content)
 
     def _process_docx_paragraph_content(
             self, docx_paragraph: docx.text.paragraph.Paragraph
-    ) -> List[enhanced_elements.Content | enhanced_elements.Hyperlink]:
+    ) -> List[ee.Content | ee.Hyperlink]:
         """
 
 		:param docx_paragraph:
@@ -169,7 +168,7 @@ class EnhancedMD:
         return paragraph_content
 
     @staticmethod
-    def _process_docx_run(docx_run: docx.text.run.Run) -> List[enhanced_elements.Content]:
+    def _process_docx_run(docx_run: docx.text.run.Run) -> List[ee.Content]:
         """
 
 		:param docx_run:
@@ -184,7 +183,7 @@ class EnhancedMD:
         #
         for content in content_split:
             run_content.append(
-                enhanced_elements.Content(
+                ee.Content(
                     string=content,
                     # Font style attributes return either True or None
                     italic=(True if docx_run.font.italic is not None else False),
@@ -198,7 +197,7 @@ class EnhancedMD:
 
         return run_content
 
-    def _process_docx_hyperlink(self, docx_hyperlink: docx.text.hyperlink.Hyperlink) -> enhanced_elements.Hyperlink:
+    def _process_docx_hyperlink(self, docx_hyperlink: docx.text.hyperlink.Hyperlink) -> ee.Hyperlink:
         """
 
 		:param docx_hyperlink:
@@ -217,15 +216,12 @@ class EnhancedMD:
                 run_content=run_content
             )
 
-        return enhanced_elements.Hyperlink(
+        return ee.Hyperlink(
             content=hyperlink_content, address=docx_hyperlink.address, fragment=docx_hyperlink.fragment
         )
 
-    def _concat_run_content_to_content_list(
-            self,
-            content_list: List[enhanced_elements.Content | enhanced_elements.Hyperlink],
-            run_content: List[enhanced_elements.Content]
-    ) -> List[enhanced_elements.Content | enhanced_elements.Hyperlink]:
+    def _concat_run_content_to_content_list(self, content_list: List[ee.Content | ee.Hyperlink],
+                                            run_content: List[ee.Content]) -> List[ee.Content | ee.Hyperlink]:
         """
 
 		:param content_list:
@@ -234,7 +230,7 @@ class EnhancedMD:
 		"""
 
         # Only if content_list is not empty and previous content is content class
-        if len(content_list) and isinstance(content_list[-1], enhanced_elements.Content):
+        if len(content_list) and isinstance(content_list[-1], ee.Content):
             # Detect whether the special concat is needed
             is_special_concat = self._detect_special_content_concat(
                 content_a=content_list[-1], content_b=run_content[0]
@@ -254,9 +250,7 @@ class EnhancedMD:
         return content_list
 
     @staticmethod
-    def _detect_special_content_concat(
-            content_a: enhanced_elements.Content, content_b: enhanced_elements.Content
-    ) -> bool:
+    def _detect_special_content_concat(content_a: ee.Content, content_b: ee.Content) -> bool:
         """
 
 		:param content_a:
@@ -273,11 +267,8 @@ class EnhancedMD:
                 and content_a.font_style == content_b.font_style
         )
 
-    def _detect_directed_element_type_and_hierarchy_level(
-            self, docx_paragraph: docx.text.paragraph.Paragraph
-    ) -> (str, int):
+    def _detect_directed_element_type_and_hierarchy_level(self, docx_paragraph: DocxParagraph) -> Tuple[str, int]:
         """
-
 		:param docx_paragraph:
 		:return directed_element_type, hierarchy_level:
 		"""
