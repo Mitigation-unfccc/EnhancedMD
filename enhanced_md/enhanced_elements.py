@@ -32,15 +32,15 @@ class Content:
 
 class BaseElement(ABC):
 	def __init__(
-			self, content: List[Content], text_format: str = "html"
+			self, content, text_format: str = "html"
 	):
 		#
-		self.content: List[Content] = content
+		self.content = content
 
 		#
 		self.text_format: str = text_format
 		self._check_text_format(text_format=self.text_format)
-		self.text: str = self._construct_text_from_content()
+		self._construct_text_from_content()
 
 	@staticmethod  # Not necessary to re-implement
 	def _check_text_format(text_format: str):
@@ -48,13 +48,13 @@ class BaseElement(ABC):
 			raise UndefinedTextFormatError(f"Undefined text format found: {text_format}"
 			                               f"\n Text format options = [\"html\", \"md\", \"plain\"")
 
-	def _construct_text_from_content(self) -> str:
+	def _construct_text_from_content(self):
 		if self.text_format == "html":
-			return self._construct_html_text_from_content()
+			self.text = self._construct_html_text_from_content()
 		elif self.text_format == "md":
-			return self._construct_md_text_from_content()
+			self.text = self._construct_md_text_from_content()
 		elif self.text_format == "plain":
-			return self._construct_plain_text_from_content()
+			self.text = self._construct_plain_text_from_content()
 
 	@abstractmethod
 	def _construct_html_text_from_content(self) -> str:
@@ -89,12 +89,12 @@ class Hyperlink(BaseElement):
 
 	def _construct_html_text_from_content(self) -> str:
 		# TODO
-		text =
+		text = ""
 
 		if self.type == "url":
-			return f"<a href={self.link}>{}</a>"
+			return f"<a href={self.link}>{self.text}</a>"
 		elif self.type == "jump":
-
+			return ""
 		else:
 			return ""
 
@@ -109,14 +109,16 @@ class Hyperlink(BaseElement):
 
 class DirectedElement(BaseElement):
 	def __init__(
-			self, content: List[Content], style: str, text_format: str = "html",
+			self, content: List[Content | BaseElement], item: List[int],
+			style: str, text_format: str = "html",
 			parent_element=None, children_elements=None, previous_element=None, next_element=None
 	):
 		# BaseElement initialization
 		super().__init__(content=content, text_format=text_format)
 
 		#
-		self.style: str = style
+		self.item = item
+		self.style = style
 
 		# Graph relations
 		self.parent: DirectedElement | None = parent_element
@@ -141,7 +143,7 @@ class Heading(DirectedElement):
 	def __init__(
 			self,
 			# DirectedElement attributes
-			content: List[Content], style: str,
+			content: List[Content | BaseElement], item: List[int], style: str,
 			# Heading specific attributes
 			# DirectedElement attributes (with default)
 			text_format: str = "html",
@@ -151,7 +153,7 @@ class Heading(DirectedElement):
 	):
 		# DirectedElement initialization
 		super().__init__(
-			content=content, style=style, text_format=text_format,
+			content=content, item=item, style=style, text_format=text_format,
 			parent_element=parent_element, children_elements=children_elements,
 			previous_element=previous_element, next_element=next_element
 		)
@@ -173,7 +175,7 @@ class Paragraph(DirectedElement):
 	def __init__(
 			self,
 			# DirectedElement attributes
-			content: List[Content], style: str,
+			content: List[Content | BaseElement], item: List[int], heading_item: List[int] | None, style: str,
 			# Paragraph specific attributes
 			# DirectedElement attributes (with default)
 			text_format: str = "html",
@@ -183,10 +185,12 @@ class Paragraph(DirectedElement):
 	):
 		# DirectedElement initialization
 		super().__init__(
-			content=content, style=style, text_format=text_format,
+			content=content, item=item, style=style, text_format=text_format,
 			parent_element=parent_element, children_elements=children_elements,
 			previous_element=previous_element, next_element=next_element
 		)
+
+		self.heading_item = heading_item
 
 	def _construct_html_text_from_content(self) -> str:
 		# TODO
@@ -205,7 +209,7 @@ class Table(DirectedElement):
 	def __init__(
 			self,
 			# DirectedElement attributes
-			content: List[Content], style: str,
+			content: List[Content | BaseElement], item: List[int], style: str,
 			# Table specific attributes
 			# DirectedElement attributes (with default)
 			text_format: str = "html",
@@ -215,7 +219,7 @@ class Table(DirectedElement):
 	):
 		# DirectedElement initialization
 		super().__init__(
-			content=content, style=style, text_format=text_format,
+			content=content, item=item, style=style, text_format=text_format,
 			parent_element=parent_element, children_elements=children_elements,
 			previous_element=previous_element, next_element=next_element
 		)

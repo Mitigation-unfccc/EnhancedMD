@@ -13,35 +13,34 @@ class EnhancedMD:
 		"""
 
 		"""
-		# TODO: Iterar para per para i construir el nostre propi Para.
-		# TODO: Ens interesa molt el tipus de paragraph, i el item, aixi com els fills.
 
 		#
 		self.docx_file_path = docx_file_path
 		logging.info(f"\t[{self.docx_file_path}]")
 		self.docx = docx.Document(docx_file_path)
-		self.docx_metadata = self._get_docx_metadata()
-		logging.info(
-			f"\t(metadata)"
-			f"\n\t\t- title: {self.docx_metadata['title']}"
-			f"\n\t\t- created: {self.docx_metadata['created_at']} ({self.docx_metadata['created_by']})"
-			f"\n\t\t- last modified: {self.docx_metadata['modified_at']} ({self.docx_metadata['modified_by']})"
-		)
+		self._get_docx_metadata()
+		self._log_docx_metadata()
 
 		#
-		self.heading_styles, self.paragraph_styles = self._check_and_unpack_styles(styles=styles)
-		logging.info(
-			f"\t(styles)"
-			f"\n\t\t- heading styles: {self.heading_styles}"
-			f"\n\t\t- paragraph styles: {self.paragraph_styles}"
-		)
+		self._check_and_unpack_styles(styles=styles)
+		self._log_styles()
 
 		#
 		self.doc_graph = None
+		self.doc_flat = None
+
+	def __call__(self, *args, **kwargs):
+		"""
+
+		:param args:
+		:param kwargs:
+		"""
+
 		self.build_doc_graph()
 
-		#
-		self.doc_flat = None
+	def __repr__(self):
+		# TODO
+		return print(self.doc_graph)
 
 	def _get_docx_metadata(self):
 		"""
@@ -49,7 +48,7 @@ class EnhancedMD:
 		:return:
 		"""
 
-		return {
+		self.docx_metadata = {
 			"title": self.docx.core_properties.title,
 			"created_at": self.docx.core_properties.created,
 			"created_by": self.docx.core_properties.author,
@@ -57,7 +56,15 @@ class EnhancedMD:
 			"modified_by": self.docx.core_properties.last_modified_by
 		}
 
-	def _check_and_unpack_styles(self, styles: dict) -> tuple:
+	def _log_docx_metadata(self):
+		logging.info(
+			f"\t(metadata)"
+			f"\n\t\t- title: {self.docx_metadata['title']}"
+			f"\n\t\t- created: {self.docx_metadata['created_at']} ({self.docx_metadata['created_by']})"
+			f"\n\t\t- last modified: {self.docx_metadata['modified_at']} ({self.docx_metadata['modified_by']})"
+		)
+
+	def _check_and_unpack_styles(self, styles: dict):
 		"""
 
 		:param styles:
@@ -66,21 +73,19 @@ class EnhancedMD:
 
 		# Check heading styles
 		try:
-			heading_styles = styles["heading"]
-			self._check_style_dict(style_dict=heading_styles, element_name="heading")
+			self.heading_styles = styles["heading"]
+			self._check_style_dict(style_dict=self.heading_styles, element_name="heading")
 		except KeyError:
-			raise KeyError("styles dictionary missing \'heading\'")
+			raise KeyError("styles dictionary missing \"heading\"")
 
 		# Check paragraph styles
 		try:
-			paragraph_styles = styles["paragraph"]
-			self._check_style_dict(style_dict=paragraph_styles, element_name="paragraph")
+			self.paragraph_styles = styles["paragraph"]
+			self._check_style_dict(style_dict=self.paragraph_styles, element_name="paragraph")
 		except KeyError:
-			raise KeyError("styles dictionary missing \'paragraph\'")
+			raise KeyError("styles dictionary missing \"paragraph\"")
 
 		# TODO: Check that styles for different elements are not the same (except level 0)
-
-		return heading_styles, paragraph_styles
 
 	@staticmethod
 	def _check_style_dict(style_dict: dict, element_name: str):
@@ -106,6 +111,13 @@ class EnhancedMD:
 			except KeyError:
 				raise KeyError(f"{element_name} style dictionary, {key} hierarchy level must be defined")
 
+	def _log_styles(self):
+		logging.info(
+			f"\t(styles)"
+			f"\n\t\t- heading styles: {self.heading_styles}"
+			f"\n\t\t- paragraph styles: {self.paragraph_styles}"
+		)
+
 	def build_doc_graph(self):
 		"""
 
@@ -126,13 +138,13 @@ class EnhancedMD:
 				if len(docx_content.rows) and len(docx_content.columns):
 					self._process_docx_table(docx_table=docx_content)
 
-	def _process_docx_paragraph(
-			self, docx_paragraph: docx.text.paragraph.Paragraph
-	) -> enhanced_elements.Heading | enhanced_elements.Paragraph:
+			print(self.doc_graph)
+
+
+	def _process_docx_paragraph(self, docx_paragraph: docx.text.paragraph.Paragraph):
 		"""
 
 		:param docx_paragraph:
-		:return directed_element:
 		"""
 
 		#
@@ -143,7 +155,154 @@ class EnhancedMD:
 			docx_paragraph=docx_paragraph
 		)
 
-		print(directed_element_type, hierarchy_level, "@", paragraph_content)
+		print(f"{'#' * hierarchy_level}{directed_element_type}")
+
+		if directed_element_type == "heading":
+			self._build_heading_subtree(
+				heading={"content": paragraph_content, "style":docx_paragraph.style.name},
+				hierarchy_level=hierarchy_level
+			)
+
+		else:
+			# directed_element_type == "paragraph":
+			pass
+
+	def _build_heading_subtree(self, heading: dict, hierarchy_level: int):
+		"""
+
+		:param heading:
+		:param hierarchy_level:
+		:return:
+		"""
+
+		#
+		if not len(self.doc_graph):
+			self.doc_graph.append({
+				"directed_element": enhanced_elements.Heading(
+					content=heading["content"],
+					style=heading["style"],
+					item=[0]
+				),
+				"hierarchy_level": hierarchy_level
+			})
+		elif hierarchy_level:
+			prev_directed_element = self.doc_graph[-1]
+			#
+			if isinstance(prev_directed_element["directed_element"], enhanced_elements.Heading):
+				#
+				if prev_directed_element["hierarchy_level"] == hierarchy_level:
+					self._append_heading_into_doc_graph(
+						heading=heading, hierarchy_level=hierarchy_level,
+						item=self._get_new_item_same_level(prev_item=prev_directed_element["directed_element"].item)
+					)
+				elif prev_directed_element["hierarchy_level"] < hierarchy_level:
+					self._append_heading_into_doc_graph(
+						heading=heading, hierarchy_level=hierarchy_level,
+						item=self._get_new_item_lower_level(prev_item=prev_directed_element["directed_element"].item)
+					)
+				else:
+					# prev_directed_element["hierarchy_level"] > hierarchy_level
+					#
+					self._merge_heading_into_heading_subtree(hierarchy_level=hierarchy_level)
+
+					prev_directed_element = self.doc_graph[-1]  # Refresh previous directed element
+					self._append_heading_into_doc_graph(
+						heading=heading, hierarchy_level=hierarchy_level,
+						item=self._get_new_item_same_level(prev_item=prev_directed_element["directed_element"].item)
+					)
+			else:
+				# Previous directed element is Paragraph or Table
+				self._merge_non_heading_into_heading_subtree()
+
+				prev_directed_element = self.doc_graph[-1]  # Refresh previous directed element
+				self._append_heading_into_doc_graph(
+					heading=heading, hierarchy_level=hierarchy_level,
+					item=self._get_new_item_same_level(prev_item=prev_directed_element["directed_element"].item)
+				)
+
+		else:
+			pass
+
+	def _append_heading_into_doc_graph(self, heading: dict, hierarchy_level: int, item: List[int]):
+		"""
+
+		:param heading:
+		:param hierarchy_level:
+		:param item:
+		:return:
+		"""
+
+		self.doc_graph.append({
+			"directed_element": enhanced_elements.Heading(
+				content=heading["content"],
+				style=heading["style"],
+				item=item
+			),
+			"hierarchy_level": hierarchy_level
+		})
+
+	def _merge_heading_into_heading_subtree(self, hierarchy_level: int):
+		"""
+
+		:param hierarchy_level:
+		:return:
+		"""
+
+		curr_heading = self.doc_graph.pop()
+		curr_children = [curr_heading["directed_element"]]
+		while curr_heading["hierarchy_level"] > hierarchy_level:
+			prev_heading = self.doc_graph[-1]
+
+			if prev_heading["hierarchy_level"] == curr_heading["hierarchy_level"]:  # Vertical merge
+				prev_heading["directed_element"].next = curr_heading["directed_element"]
+				curr_heading["directed_element"].previous = prev_heading["directed_element"]
+			else:  # Horizontal merge
+				prev_heading["directed_element"].children = curr_children
+				for children in curr_children:
+					children.parent = prev_heading["directed_element"]
+				curr_children = []
+
+			curr_heading = self.doc_graph.pop()
+			curr_children.append(curr_heading["directed_element"])
+
+	def _merge_non_heading_into_heading_subtree(self):
+		pass
+
+	def _build_paragraph_subtree(self, paragraph: enhanced_elements.Heading, hierarchy_level: int):
+		"""
+
+		:param paragraph:
+		:param hierarchy_level:
+		"""
+
+		pass
+
+	def _merge_paragraph_into_paragraph_subtree(self):
+		pass
+
+	@staticmethod
+	def _get_new_item_same_level(prev_item):
+		"""
+
+		:param prev_item:
+		"""
+
+		new_item = prev_item.copy()  # Make a copy to avoid pass by reference errors
+		new_item[-1] += 1
+
+		return  new_item
+
+	@staticmethod
+	def _get_new_item_lower_level(prev_item):
+		"""
+
+		:param prev_item:
+		"""
+
+		new_item = prev_item.copy()  # Make a copy to avoid pass by reference errors
+		new_item += [0]
+
+		return new_item
 
 	def _process_docx_paragraph_content(
 			self, docx_paragraph: docx.text.paragraph.Paragraph
@@ -342,6 +501,4 @@ class EnhancedMD:
 	def _process_docx_table(self, docx_table: docx.table):
 		pass
 
-	def __repr__(self):
-		# TODO
-		return print(self.doc_graph)
+
