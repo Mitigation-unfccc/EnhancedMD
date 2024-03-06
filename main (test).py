@@ -19,5 +19,5 @@ if __name__ == "__main__":
         }
     }
 
-    file_path = "a64-sb005.docx"
+    file_path = "cma2021.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=styles)

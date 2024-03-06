@@ -5,6 +5,7 @@ from typing import List
 import docx
 
 from enhanced_md import enhanced_elements
+from enhanced_md.exceptions import UndefinedStyleFoundError
 
 
 class EnhancedMD:
@@ -77,6 +78,8 @@ class EnhancedMD:
 		except KeyError:
 			raise KeyError("styles dictionary missing \'paragraph\'")
 
+		# TODO: Check that styles for different elements are not the same (except level 0)
+
 		return heading_styles, paragraph_styles
 
 	@staticmethod
@@ -123,11 +126,32 @@ class EnhancedMD:
 				if len(docx_content.rows) and len(docx_content.columns):
 					self._process_docx_table(docx_table=docx_content)
 
-	def _process_docx_paragraph(self, docx_paragraph: docx.text.paragraph.Paragraph):
+	def _process_docx_paragraph(
+			self, docx_paragraph: docx.text.paragraph.Paragraph
+	) -> enhanced_elements.Heading | enhanced_elements.Paragraph:
 		"""
 
 		:param docx_paragraph:
-		:return:
+		:return directed_element:
+		"""
+
+		#
+		paragraph_content = self._process_docx_paragraph_content(docx_paragraph=docx_paragraph)
+
+		#
+		directed_element_type, hierarchy_level = self._detect_directed_element_type_and_hierarchy_level(
+			docx_paragraph=docx_paragraph
+		)
+
+		print(directed_element_type, hierarchy_level, "@", paragraph_content)
+
+	def _process_docx_paragraph_content(
+			self, docx_paragraph: docx.text.paragraph.Paragraph
+	) -> List[enhanced_elements.Content | enhanced_elements.Hyperlink]:
+		"""
+
+		:param docx_paragraph:
+		:return paragraph_content:
 		"""
 
 		paragraph_content = []
@@ -148,7 +172,7 @@ class EnhancedMD:
 				elif isinstance(docx_paragraph_content, docx.text.hyperlink.Hyperlink):
 					paragraph_content.append(self._process_docx_hyperlink(docx_hyperlink=docx_paragraph_content))
 
-		print(paragraph_content)
+		return paragraph_content
 
 	@staticmethod
 	def _process_docx_run(docx_run: docx.text.run.Run) -> List[enhanced_elements.Content]:
@@ -238,7 +262,7 @@ class EnhancedMD:
 	@staticmethod
 	def _detect_special_content_concat(
 			content_a: enhanced_elements.Content, content_b: enhanced_elements.Content
-	):
+	) -> bool:
 		"""
 
 		:param content_a:
@@ -255,9 +279,69 @@ class EnhancedMD:
 			and content_a.font_style == content_b.font_style
 		)
 
+	def _detect_directed_element_type_and_hierarchy_level(
+			self, docx_paragraph: docx.text.paragraph.Paragraph
+	) -> (str, int):
+		"""
+
+		:param docx_paragraph:
+		:return directed_element_type, hierarchy_level:
+		"""
+
+		#
+		heading_hl = self._detect_hierarchy_level(docx_paragraph=docx_paragraph, styles_dict=self.heading_styles)
+		if heading_hl is not None and heading_hl:
+			return "heading", heading_hl
+
+		#
+		paragraph_hl = self._detect_hierarchy_level(docx_paragraph=docx_paragraph, styles_dict=self.paragraph_styles)
+		if paragraph_hl is not None and paragraph_hl:
+			return "paragraph", paragraph_hl
+
+		#
+		if heading_hl is None:
+			if paragraph_hl is None:
+				# If both heading hierarchy level are None raise correspondent error
+				raise UndefinedStyleFoundError(f"Undefined style found: {docx_paragraph.style.name}"
+				                               f"\n(text)\n\t{repr(docx_paragraph.text)}")
+			else:
+				return "paragraph", 0
+		else:
+			if paragraph_hl is None:
+				return "heading", 0
+			else:
+				logging.warning(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
+				                f"\n\t(text):\n\t\t{repr(docx_paragraph.text)}")
+				return self._conflict_undefined_directed_element_type()
+
+	@staticmethod
+	def _detect_hierarchy_level(docx_paragraph: docx.text.paragraph.Paragraph, styles_dict: dict) -> int | None:
+		"""
+
+		:param docx_paragraph:
+		:param styles_dict
+		:return hierarchy_level:
+		"""
+
+		for hierarchy_level in styles_dict:
+			if docx_paragraph.style.name in styles_dict[hierarchy_level]:
+				return hierarchy_level
+
+		return None
+
+	@staticmethod
+	def _conflict_undefined_directed_element_type():
+		"""
+
+		:return directed_element_type, hierarchy_level:
+		"""
+		# TODO: Implement this function correctly (logic to be discussed)
+		# Right now it will always assume that:
+		return "paragraph", 0
+
 	def _process_docx_table(self, docx_table: docx.table):
 		pass
 
-	def __str__(self):
+	def __repr__(self):
 		# TODO
-		return ""
+		return print(self.doc_graph)
