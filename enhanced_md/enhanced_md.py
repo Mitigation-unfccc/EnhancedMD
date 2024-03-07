@@ -21,18 +21,18 @@ class EnhancedMD:
 
 		"""
 
-		#
+		# Docx data
 		self.docx_file_path = docx_file_path
 		logging.info(f"\t[{self.docx_file_path}]")
 		self.docx = docx.Document(docx_file_path)
 		self._get_docx_metadata()
 		self._log_docx_metadata()
 
-		#
+		# Styles data
 		self._check_and_unpack_styles(styles=styles)
 		self._log_styles()
 
-		#
+		# Doc data
 		self.doc_graph = None
 		self.aux_doc_graph = None
 		self.aux_doc_graph_index = 0
@@ -71,9 +71,9 @@ class EnhancedMD:
 
 	def _check_and_unpack_styles(self, styles: dict):
 		"""
-
+		Checks the style dictionary correctness
+		and unpacks into separated style dictionaries for each type of directed element
 		:param styles:
-		:return:
 		"""
 
 		# Check heading styles
@@ -90,14 +90,15 @@ class EnhancedMD:
 		except KeyError:
 			raise KeyError("styles dictionary missing \"paragraph\"")
 
-	# TODO: Check that styles for different elements are not the same (except level 0)
+		# TODO: Check that styles for different elements are not the same (except level 0)
 
 	@staticmethod
 	def _check_style_dict(style_dict: dict, element_name: str):
 		"""
-
+		Checks the correctness of the directed element specific style dictionary:
+		- Integers keys representing the hierarchy level (including 0 which represents undefined)
+		- The hierarchy levels cannot be empty except the undefined one
 		:param style_dict:
-		:return:
 		"""
 
 		hierarchy_levels = style_dict.keys()
@@ -125,51 +126,52 @@ class EnhancedMD:
 
 	def build_doc_graph(self):
 		"""
-
-		:return:
+		Iterates over the docx document processing the contents into the enhanced_elements defined classes,
+		once the whole document has been processed, recursively builds the doc graph structure
 		"""
 
+		# Process the docx document
 		self.aux_doc_graph = []
+		self._process_docx_document()
+
+		# Build the doc graph structure
+		self.doc_graph = []
+		self._build_doc_graph()
+
+	def _process_docx_document(self):
+		"""
+		Iterates over the docx document processing the contents into the enhanced_elements defined classes,
+		storing the processed contents into the auxiliary doc graph structure
+		"""
+
 		for docx_content in self.docx.iter_inner_content():
 			# Detect whether document content is paragraph or table and process accordingly
-			if isinstance(docx_content, docx.text.paragraph.Paragraph):
+			if isinstance(docx_content, DocxParagraph):
 				# Only process paragraphs which are not empty or only consist of space, tabular or newline characters
 				if len(docx_content.text) and not all(c in " \t\n" for c in docx_content.text):
 					self._process_docx_paragraph(docx_paragraph=docx_content)
 
-			if isinstance(docx_content, docx.table.Table):
+			if isinstance(docx_content, DocxTable):
 				# Only process tables which are not empty
 				if len(docx_content.rows) and len(docx_content.columns):
 					self._process_docx_table(docx_table=docx_content)
 
-		self.doc_graph = []
-		if len(self.aux_doc_graph) > 0:
-			first_directed_element = self._get_aux_doc_graph_element_and_increment()
-
-			# Avoid starting with directed element with undefined hierarchy level
-			while first_directed_element.hierarchy_level == 0:  # will have to delete this later
-				first_directed_element = self._get_aux_doc_graph_element_and_increment()
-
-			first_directed_element.item = [0]
-			self.doc_graph.append(first_directed_element)
-			self._build_doc_subgraph(curr_directed_element=first_directed_element)
-		else:
-			raise EmptyDocxDocument(f"{self.docx_file_path} is an empty document")
-
-	def _process_docx_paragraph(self, docx_paragraph: docx.text.paragraph.Paragraph):
+	def _process_docx_paragraph(self, docx_paragraph: DocxParagraph):
+		"""
+		Process a docx paragraph into the enhanced_elements Heading or Paragraph structure,
+		appending them into the auxiliary doc graph structure
+		:param docx_paragraph: docx paragraph class
 		"""
 
-		:param docx_paragraph:
-		:return aux_doc_graph_element:
-		"""
-		#
+		# Process paragraph content
 		paragraph_content = self._process_docx_paragraph_content(docx_paragraph=docx_paragraph)
 
-		#
+		# Detect whether the docx paragraph is a Heading or Paragraph based on the style name and the hierarchy level
 		directed_element_type, hierarchy_level = self._detect_directed_element_type_and_hierarchy_level(
 			docx_paragraph=docx_paragraph
 		)
 
+		# Build into the corresponding directed element structure
 		if directed_element_type == "heading":
 			self.aux_doc_graph.append(ee.Heading(
 				content=paragraph_content, style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
@@ -180,8 +182,7 @@ class EnhancedMD:
 				content=paragraph_content, style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
 			))
 
-	def _process_docx_paragraph_content(self, docx_paragraph: docx.text.paragraph.Paragraph
-	                                    ) -> List[ee.Content | ee.Hyperlink]:
+	def _process_docx_paragraph_content(self, docx_paragraph: DocxParagraph) -> List[ee.Content | ee.Hyperlink]:
 		"""
 
 		:param docx_paragraph:
@@ -189,27 +190,25 @@ class EnhancedMD:
 		"""
 
 		paragraph_content = []
-		#
 		for docx_paragraph_content in docx_paragraph.iter_inner_content():
 			# Only process paragraph contents which are not empty
 			if len(docx_paragraph_content.text):
 				# Detect whether paragraph content is run or hyperlink and process accordingly
-				if isinstance(docx_paragraph_content, docx.text.run.Run):
+				if isinstance(docx_paragraph_content, DocxRun):
 					run_content = self._process_docx_run(docx_run=docx_paragraph_content)
 
-					# Apply special paragraph_content concat
+					# Apply (if needed) special paragraph_content concat
 					paragraph_content = self._concat_run_content_to_content_list(
-						content_list=paragraph_content,
-						run_content=run_content
+						content_list=paragraph_content, run_content=run_content
 					)
 
-				elif isinstance(docx_paragraph_content, docx.text.hyperlink.Hyperlink):
+				elif isinstance(docx_paragraph_content, DocxHyperlink):
 					paragraph_content.append(self._process_docx_hyperlink(docx_hyperlink=docx_paragraph_content))
 
 		return paragraph_content
 
 	@staticmethod
-	def _process_docx_run(docx_run: docx.text.run.Run) -> List[ee.Content]:
+	def _process_docx_run(docx_run: DocxRun) -> List[ee.Content]:
 		"""
 
 		:param docx_run:
@@ -238,7 +237,7 @@ class EnhancedMD:
 
 		return run_content
 
-	def _process_docx_hyperlink(self, docx_hyperlink: docx.text.hyperlink.Hyperlink) -> ee.Hyperlink:
+	def _process_docx_hyperlink(self, docx_hyperlink: DocxHyperlink) -> ee.Hyperlink:
 		"""
 
 		:param docx_hyperlink:
@@ -301,11 +300,11 @@ class EnhancedMD:
 
 		return (
 			# Content A string ends with word character ('-' included)
-				bool(re.search(r"[\w-]$", content_a.string))
-				# Content B string begins with word character ('-' included)
-				and bool(re.search(r"^[\w-]", content_b.string))
-				# Last paragraph_content and first run_content have the same font style attributes
-				and content_a.font_style == content_b.font_style
+			bool(re.search(r"[\w-]$", content_a.string))
+			# Content B string begins with word character ('-' included)
+			and bool(re.search(r"^[\w-]", content_b.string))
+			# Last paragraph_content and first run_content have the same font style attributes
+			and content_a.font_style == content_b.font_style
 		)
 
 	def _detect_directed_element_type_and_hierarchy_level(self, docx_paragraph: DocxParagraph) -> Tuple[str, int]:
@@ -336,12 +335,13 @@ class EnhancedMD:
 			if paragraph_hl is None:
 				return "heading", 0
 			else:
+				# If both heading hierarchy level are 0 print correspondent warning and solve conflict
 				logging.warning(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
 				                f"\n\t(text):\n\t\t{repr(docx_paragraph.text)}")
 				return self._conflict_undefined_directed_element_type()
 
 	@staticmethod
-	def _detect_hierarchy_level(docx_paragraph: docx.text.paragraph.Paragraph, styles_dict: dict) -> int | None:
+	def _detect_hierarchy_level(docx_paragraph: DocxParagraph, styles_dict: dict) -> int | None:
 		"""
 
 		:param docx_paragraph:
@@ -361,12 +361,32 @@ class EnhancedMD:
 
 		:return directed_element_type, hierarchy_level:
 		"""
+
 		# TODO: Implement this function correctly (logic to be discussed)
 		# Right now it will always assume that:
 		return "paragraph", 0
 
 	def _process_docx_table(self, docx_table: docx.table):
 		pass
+
+	def _build_doc_graph(self):
+		"""
+		Recursively build the doc graph structure by iterating over the processed docx document contents,
+		storing the subtrees into the doc graph structure
+		"""
+
+		if len(self.aux_doc_graph) > 0:  # Check the document is not empty
+			first_directed_element = self._get_aux_doc_graph_element_and_increment()
+
+			# Avoid starting with directed element with undefined hierarchy level
+			while first_directed_element.hierarchy_level == 0:  # will have to delete this later
+				first_directed_element = self._get_aux_doc_graph_element_and_increment()
+
+			first_directed_element.item = [0]
+			self.doc_graph.append(first_directed_element)
+			self._build_doc_subgraph(curr_directed_element=first_directed_element)
+		else:
+			raise EmptyDocxDocument(f"{self.docx_file_path} is an empty document")
 
 	def _build_doc_subgraph(self, curr_directed_element: ee.DirectedElement) -> bool:
 		"""
@@ -384,8 +404,6 @@ class EnhancedMD:
 			return False
 
 		next_directed_element = self._get_aux_doc_graph_element_and_increment()
-		print(curr_directed_element.item, curr_directed_element.hierarchy_level)
-		print(curr_directed_element, next_directed_element)
 
 		# Skip directed elements with undefined hierarchy level (at least for now)
 		if next_directed_element.hierarchy_level == 0:
@@ -400,10 +418,8 @@ class EnhancedMD:
 					next_directed_element=next_directed_element
 				)
 			elif (not isinstance(curr_directed_element, ee.Heading)) and isinstance(next_directed_element, ee.Heading):
-				print("<- @ -")
 				return True
 			else:
-				print("same directed_element type")
 				need_backtrack = self._build_doc_subgraph_same_directed_element_type(
 					curr_directed_element=curr_directed_element,
 					next_directed_element=next_directed_element
@@ -419,17 +435,14 @@ class EnhancedMD:
 				backtracked_directed_element.item = self._get_new_item_same_hierarchy_level(
 					prev_item=curr_directed_element.item
 				)
-				print("- !!! ->", backtracked_directed_element.item, backtracked_directed_element.hierarchy_level)
 
 				return self._build_doc_subgraph(curr_directed_element=backtracked_directed_element)
 			elif ((not isinstance(next_directed_element, ee.Heading))
 			      and isinstance(backtracked_directed_element, ee.Heading)):
-				print("<- @@ -")
 				return True
 			else:
 				# If still has higher hierarchy level, continue backtracking
 				if curr_directed_element.hierarchy_level > backtracked_directed_element.hierarchy_level:
-					print("<- @@ -")
 					return True
 				else:
 					if curr_directed_element.parent is not None:
@@ -437,7 +450,6 @@ class EnhancedMD:
 					backtracked_directed_element.item = self._get_new_item_same_hierarchy_level(
 						prev_item=curr_directed_element.item
 					)
-					print("- !!! ->", backtracked_directed_element.item, backtracked_directed_element.hierarchy_level)
 
 					return self._build_doc_subgraph(curr_directed_element=backtracked_directed_element)
 
@@ -459,7 +471,6 @@ class EnhancedMD:
 		# Add as heading child
 		curr_directed_element.add_child(next_directed_element)
 		next_directed_element.item = [0]  # Reset non heading directed element item
-		print("- !! ->", next_directed_element.item, next_directed_element.hierarchy_level)
 
 		# Continue recursive graph exploration
 		return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -474,7 +485,6 @@ class EnhancedMD:
 
 		# If next directed element has higher hierarchy level, backtrack
 		if curr_directed_element.hierarchy_level > next_directed_element.hierarchy_level:
-			print("<- @ -")
 			return True
 		else:
 			# Depending on difference of hierarchy levels add as child or copy parent
@@ -484,7 +494,6 @@ class EnhancedMD:
 				next_directed_element.item = self._get_new_item_child_hierarchy_level(
 					prev_item=curr_directed_element.item
 				)
-				print("- !! ->", next_directed_element.item, next_directed_element.hierarchy_level)
 
 			elif curr_directed_element.hierarchy_level == next_directed_element.hierarchy_level:
 				if curr_directed_element.parent is not None:
@@ -493,7 +502,6 @@ class EnhancedMD:
 				next_directed_element.item = self._get_new_item_same_hierarchy_level(
 					prev_item=curr_directed_element.item
 				)
-				print("- ! ->", next_directed_element.item, next_directed_element.hierarchy_level)
 
 			# Continue recursive graph exploration
 			return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -501,7 +509,7 @@ class EnhancedMD:
 	def _get_aux_doc_graph_element_and_increment(self) -> ee.DirectedElement:
 		"""
 
-		:return directed_element, next_hierarchy_level:
+		:return aux_doc_graph_element:
 		"""
 
 		aux_doc_graph_element = self.aux_doc_graph[self.aux_doc_graph_index]
@@ -514,24 +522,20 @@ class EnhancedMD:
 		"""
 
 		:param prev_item:
+		:return new_item:
 		"""
 
-		new_item = prev_item.copy()  # Make a copy to avoid pass by reference errors
-		new_item[-1] += 1
-
-		return new_item
+		return prev_item[:-1] + [prev_item[-1] + 1]
 
 	@staticmethod
 	def _get_new_item_child_hierarchy_level(prev_item: List[int]) -> List[int]:
 		"""
 
 		:param prev_item:
+		:return new_item:
 		"""
 
-		new_item = prev_item.copy()  # Make a copy to avoid pass by reference errors
-		new_item += [0]
-
-		return new_item
+		return prev_item.copy() + [0]  # Make a copy to avoid pass by reference errors
 
 	def visualize_doc_graph(self):
 		"""
@@ -547,18 +551,20 @@ class EnhancedMD:
 		plt.figure(figsize=(10, 8))
 		nx.draw(
 			G,
-			node_size=500, node_color=[G.nodes[node]['color'] for node in G.nodes()],
+			node_size=250, node_color=[G.nodes[node]['color'] for node in G.nodes()],
 			pos=nx.get_node_attributes(G, "pos"),
 			edge_color=[G[u][v]["color"] for u, v in G.edges()], arrows=True,
-			with_labels=True, font_size=7,
+			with_labels=False, font_size=7,
 		)
 		plt.show()
 
 	def visualization_add_nodes_and_edges(self, G, node, i):
 		i += 1
-		node_x_position = (0 if isinstance(node, ee.Heading) else len(node.heading_item)) + len(node.item)
+		node_x_position = (0 if isinstance(node, ee.Heading) else len(self.heading_styles.keys())-1) + len(node.item)
 		node_color = ("skyblue" if isinstance(node, ee.Heading) else "lightgray")
-		G.add_node(node.construct_identifier_string(), pos=(node_x_position, i), color=node_color)
+		G.add_node(
+			node.construct_identifier_string(), pos=(node_x_position, len(self.aux_doc_graph)-i), color=node_color
+		)
 		if node.parent is not None:
 			G.add_edge(node.parent.construct_identifier_string(),
 			           node.construct_identifier_string(), color="black")

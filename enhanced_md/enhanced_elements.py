@@ -201,7 +201,7 @@ class Paragraph(DirectedElement):
             next_element.heading_item = self.heading_item
 
     def construct_identifier_string(self) -> str:
-        return f"({'.'.join(map(str, self.heading_item))})\nParagraph\n{super().construct_identifier_string()}"
+        return f"({'.'.join(map(str, self.heading_item))})\nP_{super().construct_identifier_string()}"
 
 class Table(DirectedElement):
 
@@ -237,4 +237,4 @@ class Table(DirectedElement):
             next_element.heading_item = self.heading_item
 
     def construct_identifier_string(self) -> str:
-        return f"({'.'.join(map(str, self.heading_item))})\nTable\n{super().construct_identifier_string()}"
+        return f"({'.'.join(map(str, self.heading_item))})\nT_{super().construct_identifier_string()}"
