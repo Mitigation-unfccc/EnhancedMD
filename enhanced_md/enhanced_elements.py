@@ -85,7 +85,7 @@ class BaseElement(ABC):
             "html": self._construct_html_text_from_content,
             "md": self._construct_md_text_from_content,
             "plain": self._construct_plain_text_from_content,
-        }.get(self.text_format, self._construct_plain_text_from_content)
+        }.get(str(self.text_format), self._construct_plain_text_from_content)
         return construct_method()
 
     def _construct_html_text_from_content(self) -> str:
@@ -131,10 +131,11 @@ class Hyperlink(BaseElement):
 
 class DirectedElement(BaseElement):
 
-    __slots__ = ("style", "parent", "children", "previous", "next", "item")
+    __slots__ = ("style", "hierarchy_level", "parent", "children", "previous", "next", "item")
 
     def __init__(
-            self, content: List[Content], style: str, text_format: TextFormat = TextFormat.HTML,
+            self, content: List[Content], style: str, hierarchy_level: int,
+            text_format: TextFormat = TextFormat.HTML,
             parent_element: DirectedElement | None = None,
             children_elements: List[DirectedElement | None] = None,
             previous_element: DirectedElement | None = None,
@@ -142,6 +143,7 @@ class DirectedElement(BaseElement):
     ) -> None:
         super().__init__(content=content, text_format=text_format)
         self.style = style
+        self.hierarchy_level = hierarchy_level
         self.parent = parent_element
         self.children = children_elements if children_elements is not None else []
         self.previous = previous_element
@@ -156,16 +158,21 @@ class DirectedElement(BaseElement):
         self.next = next_element
         next_element.previous = self
 
+    def construct_identifier_string(self) -> str:
+        return ".".join(map(str, self.item))
 
 class Heading(DirectedElement):
 
     def __init__(
-            self, content: List[Content], style: str, text_format: TextFormat = TextFormat.HTML,
+            self, content: List[Content], style: str, hierarchy_level: int,
+            text_format: TextFormat = TextFormat.HTML,
             parent_element: DirectedElement | None = None, children_elements: List[DirectedElement] | None = None,
             previous_element: DirectedElement | None = None, next_element: DirectedElement | None = None):
-        super().__init__(content=content, style=style, text_format=text_format,
-                         parent_element=parent_element, children_elements=children_elements,
-                         previous_element=previous_element, next_element=next_element)
+        super().__init__(
+            content=content, style=style, hierarchy_level=hierarchy_level, text_format=text_format,
+            parent_element=parent_element, children_elements=children_elements,
+            previous_element=previous_element, next_element=next_element
+        )
 
 
 class Paragraph(DirectedElement):
@@ -173,26 +180,43 @@ class Paragraph(DirectedElement):
     __slots__ = "heading_item"
 
     def __init__(
-            self, content: List[Content], style: str, text_format: TextFormat = TextFormat.HTML,
+            self, content: List[Content], style: str, hierarchy_level: int,
+            text_format: TextFormat = TextFormat.HTML,
             parent_element: DirectedElement | None = None, children_elements: List[DirectedElement] | None = None,
             previous_element: DirectedElement | None = None, next_element: DirectedElement | None = None):
         super().__init__(
-            content=content, style=style, text_format=text_format,
+            content=content, style=style, hierarchy_level=hierarchy_level, text_format=text_format,
             parent_element=parent_element, children_elements=children_elements,
             previous_element=previous_element, next_element=next_element
         )
         self.heading_item = None
 
+    def add_child(self, child: DirectedElement) -> None:
+        super().add_child(child=child)
+        child.heading_item = self.heading_item
+
+    def add_next(self, next_element: DirectedElement) -> None:
+        super().add_next(next_element=next_element)
+        if not isinstance(next_element, Heading):
+            next_element.heading_item = self.heading_item
+
+    def construct_identifier_string(self) -> str:
+        return f"({'.'.join(map(str, self.heading_item))})\nParagraph\n{super().construct_identifier_string()}"
+
 class Table(DirectedElement):
 
     __slots__ = "heading_item"
 
-    def __init__(self, content: List[Content], style: str, text_format: TextFormat = TextFormat.HTML,
+    def __init__(self, content: List[Content], style: str, hierarchy_level: int,
+                 text_format: TextFormat = TextFormat.HTML,
                  parent_element: DirectedElement | None = None, children_elements: List[DirectedElement] | None = None,
                  previous_element: DirectedElement | None = None, next_element: DirectedElement | None = None):
-        super().__init__(content=content, style=style, text_format=text_format,
-                         parent_element=parent_element, children_elements=children_elements,
-                         previous_element=previous_element, next_element=next_element)
+        super().__init__(
+            content=content, style=style, hierarchy_level=hierarchy_level, text_format=text_format,
+            parent_element=parent_element, children_elements=children_elements,
+            previous_element=previous_element, next_element=next_element
+        )
+        self.heading_item = None
 
     def _construct_html_text_from_content(self) -> str:
         return ""
@@ -202,3 +226,15 @@ class Table(DirectedElement):
 
     def _construct_plain_text_from_content(self) -> str:
         return ""
+
+    def add_child(self, child: DirectedElement) -> None:
+        super().add_child(child=child)
+        child.heading_item = self.heading_item
+
+    def add_next(self, next_element: DirectedElement) -> None:
+        super().add_next(next_element=next_element)
+        if not isinstance(next_element, Heading):
+            next_element.heading_item = self.heading_item
+
+    def construct_identifier_string(self) -> str:
+        return f"({'.'.join(map(str, self.heading_item))})\nTable\n{super().construct_identifier_string()}"

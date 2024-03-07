@@ -144,13 +144,15 @@ class EnhancedMD:
 
 		self.doc_graph = []
 		if len(self.aux_doc_graph) > 0:
-			first_directed_element, first_hierarchy_level = self._get_aux_doc_graph_element_and_increment()
+			first_directed_element = self._get_aux_doc_graph_element_and_increment()
+
+			# Avoid starting with directed element with undefined hierarchy level
+			while first_directed_element.hierarchy_level == 0:  # will have to delete this later
+				first_directed_element = self._get_aux_doc_graph_element_and_increment()
+
 			first_directed_element.item = [0]
 			self.doc_graph.append(first_directed_element)
-			self._build_doc_sub_graph(
-				curr_directed_element=first_directed_element,
-				curr_hierarchy_level=first_hierarchy_level
-			)
+			self._build_doc_subgraph(curr_directed_element=first_directed_element)
 		else:
 			raise EmptyDocxDocument(f"{self.docx_file_path} is an empty document")
 
@@ -169,19 +171,14 @@ class EnhancedMD:
 		)
 
 		if directed_element_type == "heading":
-			self.aux_doc_graph.append({
-				"directed_element": ee.Heading(content=paragraph_content, style=docx_paragraph.style.name),
-				"hierarchy_level": hierarchy_level
-			})
-		"""
+			self.aux_doc_graph.append(ee.Heading(
+				content=paragraph_content, style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
+			))
 		else:
 			# directed_element_type == "paragraph":
-			
-			self.aux_doc_graph.append({
-				"directed_element": ee.Paragraph(content=paragraph_content, style=docx_paragraph.style.name),
-				"hierarchy_level": hierarchy_level
-			})
-		"""
+			self.aux_doc_graph.append(ee.Paragraph(
+				content=paragraph_content, style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
+			))
 
 	def _process_docx_paragraph_content(self, docx_paragraph: docx.text.paragraph.Paragraph
 	                                    ) -> List[ee.Content | ee.Hyperlink]:
@@ -371,67 +368,137 @@ class EnhancedMD:
 	def _process_docx_table(self, docx_table: docx.table):
 		pass
 
-	def _build_doc_sub_graph(self, curr_directed_element: ee.DirectedElement, curr_hierarchy_level: int) -> bool:
+	def _build_doc_subgraph(self, curr_directed_element: ee.DirectedElement) -> bool:
 		"""
 
+		:param curr_directed_element:
+		:return need_backtrack:
 		"""
-		if curr_hierarchy_level == 1:
+
+		# If no parent has been assigned to the current directed element, means that it is child of doc graph root
+		if curr_directed_element.parent is None:
 			self.doc_graph.append(curr_directed_element)
 
+		# End of graph condition
 		if self.aux_doc_graph_index == len(self.aux_doc_graph):
 			return False
 
-		next_directed_element, next_hierarchy_level = self._get_aux_doc_graph_element_and_increment()
-		print(curr_directed_element.item, curr_hierarchy_level)
-		if next_hierarchy_level != 0:
+		next_directed_element = self._get_aux_doc_graph_element_and_increment()
+		print(curr_directed_element.item, curr_directed_element.hierarchy_level)
+		print(curr_directed_element, next_directed_element)
+
+		# Skip directed elements with undefined hierarchy level (at least for now)
+		if next_directed_element.hierarchy_level == 0:
+			need_backtrack = self._build_doc_subgraph(curr_directed_element=curr_directed_element)
+		else:
+			# Recursive graph exploration
 			curr_directed_element.add_next(next_directed_element)
 
-			if curr_hierarchy_level > next_hierarchy_level:
+			if isinstance(curr_directed_element, ee.Heading) and (not isinstance(next_directed_element, ee.Heading)):
+				need_backtrack = self._build_doc_subgraph_heading_and_non_heading_type(
+					curr_directed_element=curr_directed_element,
+					next_directed_element=next_directed_element
+				)
+			elif (not isinstance(curr_directed_element, ee.Heading)) and isinstance(next_directed_element, ee.Heading):
 				print("<- @ -")
 				return True
 			else:
-				if curr_hierarchy_level == next_hierarchy_level:
-					if curr_directed_element.parent is not None:
-						curr_directed_element.parent.add_child(next_directed_element)
-					next_directed_element.item = self._get_new_item_same_hierarchy_level(
-						prev_item=curr_directed_element.item
-					)
-					print("- ! ->", next_directed_element.item, next_hierarchy_level)
-				elif curr_hierarchy_level < next_hierarchy_level:
-					curr_directed_element.add_child(next_directed_element)
-					next_directed_element.item = self._get_new_item_child_hierarchy_level(
-						prev_item=curr_directed_element.item
-					)
-					print("- !! ->", next_directed_element.item, next_hierarchy_level)
-				x = self._build_doc_sub_graph(
-					curr_directed_element=next_directed_element, curr_hierarchy_level=next_hierarchy_level
+				print("same directed_element type")
+				need_backtrack = self._build_doc_subgraph_same_directed_element_type(
+					curr_directed_element=curr_directed_element,
+					next_directed_element=next_directed_element
 				)
-		else:
-			x = self._build_doc_sub_graph(
-				curr_directed_element=curr_directed_element, curr_hierarchy_level=curr_hierarchy_level
-			)
 
-		if x:
-			x_graph_element = self.aux_doc_graph[self.aux_doc_graph_index - 1]
-			if curr_hierarchy_level > x_graph_element["hierarchy_level"]:
+		# Backtracking
+		if need_backtrack:
+			backtracked_directed_element = self.aux_doc_graph[self.aux_doc_graph_index - 1]
+
+			if isinstance(curr_directed_element, ee.Heading) and (not isinstance(next_directed_element, ee.Heading)):
+				if curr_directed_element.parent is not None:
+					curr_directed_element.parent.add_child(backtracked_directed_element)
+				backtracked_directed_element.item = self._get_new_item_same_hierarchy_level(
+					prev_item=curr_directed_element.item
+				)
+				print("- !!! ->", backtracked_directed_element.item, backtracked_directed_element.hierarchy_level)
+
+				return self._build_doc_subgraph(curr_directed_element=backtracked_directed_element)
+			elif ((not isinstance(next_directed_element, ee.Heading))
+			      and isinstance(backtracked_directed_element, ee.Heading)):
 				print("<- @@ -")
 				return True
 			else:
-				if curr_directed_element.parent is not None:
-					curr_directed_element.parent.add_child(x_graph_element["directed_element"])
-				x_graph_element["directed_element"].item = self._get_new_item_same_hierarchy_level(
-						prev_item=self._get_new_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-				)
-				print("- !!! ->", x_graph_element["directed_element"].item, x_graph_element["hierarchy_level"])
+				# If still has higher hierarchy level, continue backtracking
+				if curr_directed_element.hierarchy_level > backtracked_directed_element.hierarchy_level:
+					print("<- @@ -")
+					return True
+				else:
+					if curr_directed_element.parent is not None:
+						curr_directed_element.parent.add_child(backtracked_directed_element)
+					backtracked_directed_element.item = self._get_new_item_same_hierarchy_level(
+						prev_item=curr_directed_element.item
+					)
+					print("- !!! ->", backtracked_directed_element.item, backtracked_directed_element.hierarchy_level)
 
-				return self._build_doc_sub_graph(
-					curr_directed_element=x_graph_element["directed_element"],
-					curr_hierarchy_level=x_graph_element["hierarchy_level"]
-				)
+					return self._build_doc_subgraph(curr_directed_element=backtracked_directed_element)
+
 		else:
 			return False
 
-	def _get_aux_doc_graph_element_and_increment(self) -> Tuple[ee.DirectedElement, int]:
+	def _build_doc_subgraph_heading_and_non_heading_type(self, curr_directed_element: ee.Heading,
+	                                                     next_directed_element: ee.DirectedElement) -> bool:
+		"""
+
+		:param curr_directed_element:
+		:param next_directed_element:
+		:return need_backtrack:
+		"""
+
+		# Set non heading directed element heading item
+		next_directed_element.heading_item = curr_directed_element.item
+
+		# Add as heading child
+		curr_directed_element.add_child(next_directed_element)
+		next_directed_element.item = [0]  # Reset non heading directed element item
+		print("- !! ->", next_directed_element.item, next_directed_element.hierarchy_level)
+
+		# Continue recursive graph exploration
+		return self._build_doc_subgraph(curr_directed_element=next_directed_element)
+
+	def _build_doc_subgraph_same_directed_element_type(self, curr_directed_element: ee.DirectedElement,
+	                                                   next_directed_element: ee.DirectedElement) -> bool:
+		"""
+
+		:param curr_directed_element:
+		:return need_backtrack:
+		"""
+
+		# If next directed element has higher hierarchy level, backtrack
+		if curr_directed_element.hierarchy_level > next_directed_element.hierarchy_level:
+			print("<- @ -")
+			return True
+		else:
+			# Depending on difference of hierarchy levels add as child or copy parent
+			if curr_directed_element.hierarchy_level < next_directed_element.hierarchy_level:
+				curr_directed_element.add_child(next_directed_element)
+				# Add child item
+				next_directed_element.item = self._get_new_item_child_hierarchy_level(
+					prev_item=curr_directed_element.item
+				)
+				print("- !! ->", next_directed_element.item, next_directed_element.hierarchy_level)
+
+			elif curr_directed_element.hierarchy_level == next_directed_element.hierarchy_level:
+				if curr_directed_element.parent is not None:
+					curr_directed_element.parent.add_child(next_directed_element)
+				# Add next item
+				next_directed_element.item = self._get_new_item_same_hierarchy_level(
+					prev_item=curr_directed_element.item
+				)
+				print("- ! ->", next_directed_element.item, next_directed_element.hierarchy_level)
+
+			# Continue recursive graph exploration
+			return self._build_doc_subgraph(curr_directed_element=next_directed_element)
+
+	def _get_aux_doc_graph_element_and_increment(self) -> ee.DirectedElement:
 		"""
 
 		:return directed_element, next_hierarchy_level:
@@ -440,7 +507,7 @@ class EnhancedMD:
 		aux_doc_graph_element = self.aux_doc_graph[self.aux_doc_graph_index]
 		self.aux_doc_graph_index += 1
 
-		return aux_doc_graph_element["directed_element"], aux_doc_graph_element["hierarchy_level"]
+		return aux_doc_graph_element
 
 	@staticmethod
 	def _get_new_item_same_hierarchy_level(prev_item: List[int]) -> List[int]:
@@ -478,19 +545,26 @@ class EnhancedMD:
 			i = self.visualization_add_nodes_and_edges(G, node, i)
 
 		plt.figure(figsize=(10, 8))
-		nx.draw(G, with_labels=True, node_size=500, node_color="skyblue", font_size=7, font_weight='bold', arrows=True,
-		        edge_color=[G[u][v]["color"] for u, v in G.edges()], pos=nx.get_node_attributes(G, "pos"))
+		nx.draw(
+			G,
+			node_size=500, node_color=[G.nodes[node]['color'] for node in G.nodes()],
+			pos=nx.get_node_attributes(G, "pos"),
+			edge_color=[G[u][v]["color"] for u, v in G.edges()], arrows=True,
+			with_labels=True, font_size=7,
+		)
 		plt.show()
 
 	def visualization_add_nodes_and_edges(self, G, node, i):
 		i += 1
-		G.add_node(".".join(map(str, node.item)), pos=(len(node.item), len(self.aux_doc_graph) - i))
+		node_x_position = (0 if isinstance(node, ee.Heading) else len(node.heading_item)) + len(node.item)
+		node_color = ("skyblue" if isinstance(node, ee.Heading) else "lightgray")
+		G.add_node(node.construct_identifier_string(), pos=(node_x_position, i), color=node_color)
 		if node.parent is not None:
-			G.add_edge(".".join(map(str, node.parent.item)),
-			           ".".join(map(str, node.item)), color="black")
+			G.add_edge(node.parent.construct_identifier_string(),
+			           node.construct_identifier_string(), color="black")
 		if node.next is not None:
-			G.add_edge(".".join(map(str, node.item)),
-			           ".".join(map(str, node.next.item)), color="b")
+			G.add_edge(node.construct_identifier_string(),
+			           node.next.construct_identifier_string(), color="b")
 		if node.children is not None:
 			for child in node.children:
 				i = self.visualization_add_nodes_and_edges(G, child, i)
