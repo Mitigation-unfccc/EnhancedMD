@@ -155,7 +155,7 @@ class EnhancedMD:
 
         if directed_element_type == "heading":
             self._build_heading_subtree(
-                heading={"content": paragraph_content, "style":docx_paragraph.style.name},
+                heading={"content": paragraph_content, "style": docx_paragraph.style.name},
                 hierarchy_level=hierarchy_level
             )
 
@@ -243,6 +243,14 @@ class EnhancedMD:
         :param hierarchy_level:
         :return:
         """
+        # If heading [poses a la llista de principal, amb un lloc a la memoria]
+            # Look for children
+            # If children. assing children to heading
+                # Look for children
+                # If children. assing children to heading etc. (recursive)
+            # If no children. assing next to heading
+
+
 
         curr_heading = self.doc_graph.pop()
         curr_children = [curr_heading["directed_element"]]
