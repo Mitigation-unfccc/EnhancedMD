@@ -4,6 +4,8 @@ from typing import List, Tuple
 
 import docx
 from docx.text.paragraph import Paragraph as DocxParagraph
+from docx.text.hyperlink import Hyperlink as DocxHyperlink
+from docx.text.run import Run as DocxRun
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -244,13 +246,11 @@ class EnhancedMD:
         :return:
         """
         # If heading [poses a la llista de principal, amb un lloc a la memoria]
-            # Look for children
-            # If children. assing children to heading
-                # Look for children
-                # If children. assing children to heading etc. (recursive)
-            # If no children. assing next to heading
-
-
+        # Look for children
+        # If children. assing children to heading
+        # Look for children
+        # If children. assing children to heading etc. (recursive)
+        # If no children. assing next to heading
 
         curr_heading = self.doc_graph.pop()
         curr_children = [curr_heading["directed_element"]]
@@ -327,7 +327,7 @@ class EnhancedMD:
             # Only process paragraph contents which are not empty
             if len(docx_paragraph_content.text):
                 # Detect whether paragraph content is run or hyperlink and process accordingly
-                if isinstance(docx_paragraph_content, docx.text.run.Run):
+                if isinstance(docx_paragraph_content, DocxRun):
                     run_content = self._process_docx_run(docx_run=docx_paragraph_content)
 
                     # Apply special paragraph_content concat
@@ -336,13 +336,13 @@ class EnhancedMD:
                         run_content=run_content
                     )
 
-                elif isinstance(docx_paragraph_content, docx.text.hyperlink.Hyperlink):
+                elif isinstance(docx_paragraph_content, DocxHyperlink):
                     paragraph_content.append(self._process_docx_hyperlink(docx_hyperlink=docx_paragraph_content))
 
         return paragraph_content
 
     @staticmethod
-    def _process_docx_run(docx_run: docx.text.run.Run) -> List[ee.Content]:
+    def _process_docx_run(docx_run: DocxRun) -> List[ee.Content]:
         """
 
         :param docx_run:
@@ -501,30 +501,31 @@ class EnhancedMD:
     def _process_docx_table(self, docx_table: docx.table):
         pass
 
-	def visualize_doc_graph(self):
-		"""
+        def visualize_doc_graph(self):
+            """
 
-		"""
+		    """
 
-		G = nx.DiGraph()
+            G = nx.DiGraph()
 
-		for node in self.doc_graph:
-			self.visualization_add_nodes_and_edges(G, node)
+            for node in self.doc_graph:
+                self.visualization_add_nodes_and_edges(G, node)
 
-		plt.figure(figsize=(10, 8))
-		nx.draw(G, with_labels=True, node_size=2000, node_color="skyblue", font_size=10, font_weight='bold', arrows=True)
-		plt.show()
+            plt.figure(figsize=(10, 8))
+            nx.draw(G, with_labels=True, node_size=2000, node_color="skyblue", font_size=10, font_weight='bold',
+                    arrows=True)
+            plt.show()
 
-	def visualization_add_nodes_and_edges(self, G, node):
-		G.add_node('.'.join(map(str, node["directed_element"].item)))
-		if node["directed_element"].parent is not None:
-			G.add_edge('.'.join(map(str, node["directed_element"].parent.item)),
-			           '.'.join(map(str, node["directed_element"].item)))
-		if node["directed_element"].next is not None:
-			print("!!!!!")
-			G.add_edge('.'.join(map(str, node["directed_element"].item)),
-			           '.'.join(map(str, node["directed_element"].next.item)))
-		if node["directed_element"].children is not None:
-			print("!!!")
-			for child in node["directed_element"].children:
-				self.visualization_add_nodes_and_edges(G, child)
+        def visualization_add_nodes_and_edges(self, G, node):
+            G.add_node('.'.join(map(str, node["directed_element"].item)))
+            if node["directed_element"].parent is not None:
+                G.add_edge('.'.join(map(str, node["directed_element"].parent.item)),
+                           '.'.join(map(str, node["directed_element"].item)))
+            if node["directed_element"].next is not None:
+                print("!!!!!")
+                G.add_edge('.'.join(map(str, node["directed_element"].item)),
+                           '.'.join(map(str, node["directed_element"].next.item)))
+            if node["directed_element"].children is not None:
+                print("!!!")
+                for child in node["directed_element"].children:
+                    self.visualization_add_nodes_and_edges(G, child)

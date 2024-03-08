@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import re
 from abc import ABC, abstractmethod
 from typing import List
 from enum import Enum, auto
@@ -88,11 +90,78 @@ class BaseElement(ABC):
         }.get(self.text_format, self._construct_plain_text_from_content)
         return construct_method()
 
+    @staticmethod
+    def clean_html_tags(text):
+        # Define tag pairs to be cleaned
+        tag_pairs = {
+            "italic": ("i", "i"),
+            "bold": ("b", "b"),
+            "underline": ("u", "u"),
+            "strike": ("strike", "strike"),
+            "superscript": ("sup", "sup"),
+            "subscript": ("sub", "sub"),
+        }
+
+        # Iterate through tag pairs and replace consecutive tags
+        for tag in tag_pairs.values():
+            opening_tag, closing_tag = tag
+            pattern = re.compile(f"</{closing_tag}>\\s*<{opening_tag}>")
+            text = pattern.sub(" ", text)
+
+        return text
+
+    @staticmethod
+    def clean_and_merge_markdown(text):
+        # Patterns to identify markdown syntax for bold, italic, strikethrough, superscript, and subscript
+        markdown_patterns = {
+            "bold": r"\*\*(.*?)\*\*",
+            "italic": r"\*(.*?)\*",
+            "strikethrough": r"~~(.*?)~~",
+            "superscript": r"<sup>(.*?)</sup>",
+            "subscript": r"<sub>(.*?)</sub>",
+        }
+
+        # Pattern to find unnecessary repeated markdown without content
+        cleanup_patterns = {
+            "bold": r"\*\*\s*\*\*",
+            "italic": r"\*\s*\*",
+            "strikethrough": r"~~\s*~~",
+            "superscript": r"<sup>\s*</sup>",
+            "subscript": r"<sub>\s*</sub>",
+        }
+
+        # First, remove any unnecessary repeated markdown syntax
+        for pattern in cleanup_patterns.values():
+            text = re.sub(pattern, " ", text)
+
+        # Now, merge adjacent markdown patterns
+        for key, pattern in markdown_patterns.items():
+            # Create a regex to find adjacent patterns
+            merge_regex = re.compile(f"({pattern})\s+({pattern})")
+            while True:
+                # Look for matches to merge
+                match = merge_regex.search(text)
+                if not match:
+                    break  # Exit loop if no more matches
+                # Extract matched texts without the markdown syntax
+                text1, text2 = match.group(1), match.group(3)
+                # Determine the markdown syntax based on the key
+                if key in ["bold", "italic", "strikethrough"]:
+                    md_open, md_close = match.group(2)[0] * 2, match.group(2)[-1] * 2
+                else:  # For superscript and subscript
+                    md_open = f"<{key}>"
+                    md_close = f"</{key}>"
+                # Replace the matched text with merged version
+                merged_text = f"{md_open}{text1} {text2}{md_close}"
+                text = text[:match.start()] + merged_text + text[match.end():]
+
+        return text
+
     def _construct_html_text_from_content(self) -> str:
-        return ''.join([content.string_to_html() for content in self.content])
+        return self.clean_html_tags(''.join([content.string_to_html() for content in self.content]))
 
     def _construct_md_text_from_content(self) -> str:
-        return ''.join([content.string_to_md() for content in self.content])
+        return self.clean_and_merge_markdown(''.join([content.string_to_md() for content in self.content]))
 
     def _construct_plain_text_from_content(self) -> str:
         return ''.join([content.string for content in self.content])
