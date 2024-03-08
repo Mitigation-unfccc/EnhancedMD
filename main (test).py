@@ -23,3 +23,4 @@ if __name__ == "__main__":
     file_path = "cma2021.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
+    emd.visualize_doc_graph()
