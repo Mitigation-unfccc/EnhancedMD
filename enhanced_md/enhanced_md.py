@@ -16,7 +16,8 @@ from enhanced_md.exceptions import UndefinedStyleFoundError, EmptyDocxDocument
 
 
 class EnhancedMD:
-	def __init__(self, docx_file_path: str, styles: dict):
+
+  def __init__(self, docx_file_path: str, styles: dict):
 		"""
 
 		"""
