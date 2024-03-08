@@ -73,7 +73,7 @@ class EnhancedMD:
 		"""
 		Checks the style dictionary correctness
 		and unpacks into separated style dictionaries for each type of directed element
-		:param styles:
+		:param styles: Input style dictionary
 		"""
 
 		# Check heading styles
@@ -98,7 +98,7 @@ class EnhancedMD:
 		Checks the correctness of the directed element specific style dictionary:
 		- Integers keys representing the hierarchy level (including 0 which represents undefined)
 		- The hierarchy levels cannot be empty except the undefined one
-		:param style_dict:
+		:param style_dict: Directed element specific style dictionary
 		"""
 
 		hierarchy_levels = style_dict.keys()
@@ -160,7 +160,7 @@ class EnhancedMD:
 		"""
 		Process a docx paragraph into the enhanced_elements Heading or Paragraph structure,
 		appending them into the auxiliary doc graph structure
-		:param docx_paragraph: docx paragraph class
+		:param docx_paragraph: Docx paragraph class
 		"""
 
 		# Process paragraph content
@@ -185,7 +185,7 @@ class EnhancedMD:
 	def _process_docx_paragraph_content(self, docx_paragraph: DocxParagraph) -> List[ee.Content | ee.Hyperlink]:
 		"""
 
-		:param docx_paragraph:
+		:param docx_paragraph: Docx paragraph class
 		:return paragraph_content:
 		"""
 
@@ -330,10 +330,10 @@ class EnhancedMD:
 				raise UndefinedStyleFoundError(f"Undefined style found: {docx_paragraph.style.name}"
 				                               f"\n(text)\n\t{repr(docx_paragraph.text)}")
 			else:
-				return "paragraph", 0
+				return "paragraph", 1
 		else:
 			if paragraph_hl is None:
-				return "heading", 0
+				return "heading", 1
 			else:
 				# If both heading hierarchy level are 0 print correspondent warning and solve conflict
 				logging.warning(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
@@ -364,7 +364,7 @@ class EnhancedMD:
 
 		# TODO: Implement this function correctly (logic to be discussed)
 		# Right now it will always assume that:
-		return "paragraph", 0
+		return "paragraph", 1
 
 	def _process_docx_table(self, docx_table: docx.table):
 		pass
@@ -417,7 +417,8 @@ class EnhancedMD:
 					curr_directed_element=curr_directed_element,
 					next_directed_element=next_directed_element
 				)
-			elif (not isinstance(curr_directed_element, ee.Heading)) and isinstance(next_directed_element, ee.Heading):
+			elif ((not isinstance(curr_directed_element, ee.Heading)) and isinstance(next_directed_element, ee.Heading)
+			      and (curr_directed_element.parent is not None)):
 				return True
 			else:
 				need_backtrack = self._build_doc_subgraph_same_directed_element_type(
@@ -546,7 +547,7 @@ class EnhancedMD:
 
 		i = 0
 		for node in self.doc_graph:
-			i = self.visualization_add_nodes_and_edges(G, node, i)
+			i = self._visualization_add_nodes_and_edges(G, node, i)
 
 		plt.figure(figsize=(10, 8))
 		nx.draw(
@@ -554,14 +555,15 @@ class EnhancedMD:
 			node_size=250, node_color=[G.nodes[node]['color'] for node in G.nodes()],
 			pos=nx.get_node_attributes(G, "pos"),
 			edge_color=[G[u][v]["color"] for u, v in G.edges()], arrows=True,
-			with_labels=False, font_size=7,
+			with_labels=True, font_size=7,
 		)
 		plt.show()
 
-	def visualization_add_nodes_and_edges(self, G, node, i):
+	def _visualization_add_nodes_and_edges(self, G, node, i):
 		i += 1
 		node_x_position = (0 if isinstance(node, ee.Heading) else len(self.heading_styles.keys())-1) + len(node.item)
 		node_color = ("skyblue" if isinstance(node, ee.Heading) else "lightgray")
+		print(node.item, isinstance(node, ee.Heading))
 		G.add_node(
 			node.construct_identifier_string(), pos=(node_x_position, len(self.aux_doc_graph)-i), color=node_color
 		)
@@ -569,9 +571,10 @@ class EnhancedMD:
 			G.add_edge(node.parent.construct_identifier_string(),
 			           node.construct_identifier_string(), color="black")
 		if node.next is not None:
+			print(node.next)
 			G.add_edge(node.construct_identifier_string(),
 			           node.next.construct_identifier_string(), color="b")
 		if node.children is not None:
 			for child in node.children:
-				i = self.visualization_add_nodes_and_edges(G, child, i)
+				i = self._visualization_add_nodes_and_edges(G, child, i)
 		return i

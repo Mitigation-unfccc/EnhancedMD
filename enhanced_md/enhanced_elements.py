@@ -201,7 +201,8 @@ class Paragraph(DirectedElement):
             next_element.heading_item = self.heading_item
 
     def construct_identifier_string(self) -> str:
-        return f"({'.'.join(map(str, self.heading_item))})\nP_{super().construct_identifier_string()}"
+        return (f"({'.'.join(map(str, self.heading_item)) if self.heading_item is not None else 'NONE'})"
+                f"\nP_{super().construct_identifier_string()}")
 
 class Table(DirectedElement):
 
