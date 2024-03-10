@@ -17,7 +17,7 @@ from enhanced_md.exceptions import UndefinedStyleFoundError, EmptyDocxDocument
 
 class EnhancedMD:
 
-  def __init__(self, docx_file_path: str, styles: dict):
+	def __init__(self, docx_file_path: str, styles: dict):
 		"""
 
 		"""
@@ -175,12 +175,14 @@ class EnhancedMD:
 		# Build into the corresponding directed element structure
 		if directed_element_type == "heading":
 			self.aux_doc_graph.append(ee.Heading(
-				content=paragraph_content, style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
+				content=paragraph_content, docx_element=docx_paragraph,
+				style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
 			))
 		else:
 			# directed_element_type == "paragraph":
 			self.aux_doc_graph.append(ee.Paragraph(
-				content=paragraph_content, style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
+				content=paragraph_content, docx_element=docx_paragraph,
+				style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
 			))
 
 	def _process_docx_paragraph_content(self, docx_paragraph: DocxParagraph) -> List[ee.Content | ee.Hyperlink]:
@@ -258,7 +260,8 @@ class EnhancedMD:
 			)
 
 		return ee.Hyperlink(
-			content=hyperlink_content, address=docx_hyperlink.address, fragment=docx_hyperlink.fragment
+			content=hyperlink_content, docx_element=docx_hyperlink,
+			address=docx_hyperlink.address, fragment=docx_hyperlink.fragment
 		)
 
 	def _concat_run_content_to_content_list(self, content_list: List[ee.Content | ee.Hyperlink],
@@ -384,7 +387,8 @@ class EnhancedMD:
 				first_directed_element = self._get_aux_doc_graph_element_and_increment()
 
 			first_directed_element.item = [0]
-			self.doc_graph.append(first_directed_element)
+			if first_directed_element.has_num_id:
+				first_directed_element.num_id = 1
 			self._build_doc_subgraph(curr_directed_element=first_directed_element)
 		else:
 			raise EmptyDocxDocument(f"{self.docx_file_path} is an empty document")
@@ -437,14 +441,22 @@ class EnhancedMD:
 				backtracked_directed_element.item = self._get_new_item_same_hierarchy_level(
 					prev_item=curr_directed_element.item
 				)
+				if backtracked_directed_element.has_num_id:
+					backtracked_directed_element.num_id = (1 if not curr_directed_element.has_num_id
+					                                       else curr_directed_element.num_id + 1)
 
 				return self._build_doc_subgraph(curr_directed_element=backtracked_directed_element)
-			elif ((not isinstance(next_directed_element, ee.Heading))
+
+			elif ((not isinstance(curr_directed_element, ee.Heading))
 			      and isinstance(backtracked_directed_element, ee.Heading)):
 				return True
 			else:
+				if isinstance(curr_directed_element, ee.Heading):
+					print(curr_directed_element.hierarchy_level, backtracked_directed_element.hierarchy_level)
 				# If still has higher hierarchy level, continue backtracking
 				if curr_directed_element.hierarchy_level > backtracked_directed_element.hierarchy_level:
+					if isinstance(curr_directed_element, ee.Heading):
+						print("<--")
 					return True
 				else:
 					if curr_directed_element.parent is not None:
@@ -452,6 +464,12 @@ class EnhancedMD:
 					backtracked_directed_element.item = self._get_new_item_same_hierarchy_level(
 						prev_item=curr_directed_element.item
 					)
+					if isinstance(curr_directed_element, ee.Heading):
+						print("@@@@@")
+						print(curr_directed_element.item, backtracked_directed_element.item)
+					if backtracked_directed_element.has_num_id:
+						backtracked_directed_element.num_id = (1 if not curr_directed_element.has_num_id
+						                                       else curr_directed_element.num_id + 1)
 
 					return self._build_doc_subgraph(curr_directed_element=backtracked_directed_element)
 
@@ -473,6 +491,8 @@ class EnhancedMD:
 		# Add as heading child
 		curr_directed_element.add_child(next_directed_element)
 		next_directed_element.item = [0]  # Reset non heading directed element item
+		if next_directed_element.has_num_id:
+			next_directed_element.num_id = 1
 
 		# Continue recursive graph exploration
 		return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -496,14 +516,19 @@ class EnhancedMD:
 				next_directed_element.item = self._get_new_item_child_hierarchy_level(
 					prev_item=curr_directed_element.item
 				)
+				if next_directed_element.has_num_id:
+					next_directed_element.num_id = 1
 
 			elif curr_directed_element.hierarchy_level == next_directed_element.hierarchy_level:
 				if curr_directed_element.parent is not None:
 					curr_directed_element.parent.add_child(next_directed_element)
-				# Add next item
+				# Add next item and num_id
 				next_directed_element.item = self._get_new_item_same_hierarchy_level(
 					prev_item=curr_directed_element.item
 				)
+				if next_directed_element.has_num_id:
+					next_directed_element.num_id = (1 if not curr_directed_element.has_num_id
+					                                else curr_directed_element.num_id + 1)
 
 			# Continue recursive graph exploration
 			return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -563,16 +588,17 @@ class EnhancedMD:
 	def _visualization_add_nodes_and_edges(self, G, node, i):
 		i += 1
 		node_x_position = (0 if isinstance(node, ee.Heading) else len(self.heading_styles.keys())-1) + len(node.item)
-		node_color = ("skyblue" if isinstance(node, ee.Heading) else "lightgray")
-		print(node.item, isinstance(node, ee.Heading))
+		node_color = (0 if isinstance(node, ee.Heading) else 2)
+		node_color = (node_color+1 if node.has_num_id else node_color)
+		color_map = {0: "skyblue", 1: "blue", 2: "lightgray", 3: "gray"}
+		node_color = color_map[node_color]
 		G.add_node(
-			node.construct_identifier_string(), pos=(node_x_position, len(self.aux_doc_graph)-i), color=node_color
+			node.construct_identifier_string(), pos=(node_x_position, len(self.aux_doc_graph) - i), color=node_color
 		)
 		if node.parent is not None:
 			G.add_edge(node.parent.construct_identifier_string(),
 			           node.construct_identifier_string(), color="black")
 		if node.next is not None:
-			print(node.next)
 			G.add_edge(node.construct_identifier_string(),
 			           node.next.construct_identifier_string(), color="b")
 		if node.children is not None:
