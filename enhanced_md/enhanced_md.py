@@ -631,25 +631,13 @@ class EnhancedMD:
 
 				return self._build_doc_subgraph(curr_directed_element=back_directed_element)
 		else:
-			# Depending on difference of hierarchy levels add as child or copy parent
-			if curr_directed_element.hierarchy_level < back_directed_element.hierarchy_level:
-				curr_directed_element.add_child(back_directed_element)
-				# Add child item
-				back_directed_element.item = self._get_item_child_hierarchy_level(prev_item=curr_directed_element.item)
-				if back_directed_element.has_num_id:
-					back_directed_element.num_id = 1
-
-			elif curr_directed_element.hierarchy_level == back_directed_element.hierarchy_level:
-				if curr_directed_element.parent is not None:
-					curr_directed_element.parent.add_child(back_directed_element)
-				# Add next item and num_id
-				back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-				if back_directed_element.has_num_id:
-					back_directed_element.num_id = (1 if not curr_directed_element.has_num_id
-					                                else curr_directed_element.num_id + 1)
-
-			print("-> build_doc_subgraph_backtrack_same", "cde: ", repr(curr_directed_element.construct_identifier_string()),
-			      "bde: ", repr(back_directed_element.construct_identifier_string()))
+			if curr_directed_element.parent is not None:
+				curr_directed_element.parent.add_child(back_directed_element)
+			# Add next item and num_id
+			back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
+			if back_directed_element.has_num_id:
+				back_directed_element.num_id = (1 if not curr_directed_element.has_num_id
+				                                else curr_directed_element.num_id + 1)
 
 			# Continue recursive graph exploration
 			return self._build_doc_subgraph(curr_directed_element=back_directed_element)
