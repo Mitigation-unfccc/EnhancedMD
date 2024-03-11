@@ -466,8 +466,7 @@ class EnhancedMD:
 		curr_directed_element.add_child(next_directed_element)
 		# Reset non heading directed element item and num id
 		next_directed_element.item = [0]
-		if next_directed_element.has_num_id:
-			next_directed_element.num_id = 1
+		self._reset_num_id(directed_element=next_directed_element)
 
 		# Continue recursive doc graph exploration
 		return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -538,9 +537,7 @@ class EnhancedMD:
 			curr_directed_element.parent.add_child(back_directed_element)
 
 		back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-		self._set_num_id_same_hierarchy_level(
-			directed_element=back_directed_element, other_directed_element=curr_directed_element
-		)
+		self._set_num_id(directed_element=back_directed_element, other_directed_element=curr_directed_element)
 
 		# Continue recursive doc graph exploration
 		return self._build_doc_subgraph(curr_directed_element=back_directed_element)
@@ -628,6 +625,9 @@ class EnhancedMD:
 
 		:param directed_element:
 		"""
+
+		if directed_element.has_num_id:
+			directed_element.num_id = 1
 
 	@staticmethod
 	def _set_num_id(directed_element: ee.DirectedElement, other_directed_element: ee.DirectedElement):
