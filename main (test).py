@@ -28,8 +28,7 @@ if __name__ == "__main__":
     emd.visualize_doc_graph()
 
     def explore_num_id(x):
-        if isinstance(x, ee.Heading):
-            print(x.num_id, "@", x.item, "@", x.style, "@", repr(x.text))
+        print(x.num_id, "@", repr(x.construct_identifier_string()), "@", x.style, "@", repr(x.text))
         if x.next is not None:
             explore_num_id(x.next)
 

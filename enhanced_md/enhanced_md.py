@@ -401,8 +401,6 @@ class EnhancedMD:
 		:return need_backtrack:
 		"""
 
-		print("-> build_doc_subgraph", "cde: ", repr(curr_directed_element.construct_identifier_string()))
-
 		# If no parent has been assigned to the current directed element, means that it is child of doc graph root
 		if curr_directed_element.parent is None:
 			self.doc_graph.append(curr_directed_element)
@@ -433,8 +431,6 @@ class EnhancedMD:
 		:return need_backtrack:
 		"""
 
-		print("-> build_doc_subgraph_forward", "cde: ", repr(curr_directed_element.construct_identifier_string()))
-
 		# Skip directed elements with undefined hierarchy level (at least for now)
 		if next_directed_element.hierarchy_level == 0:
 			return self._build_doc_subgraph(curr_directed_element=curr_directed_element)
@@ -446,8 +442,8 @@ class EnhancedMD:
 					curr_directed_element=curr_directed_element, next_directed_element=next_directed_element
 				)
 			elif (not isinstance(curr_directed_element, ee.Heading)) and isinstance(next_directed_element, ee.Heading):
-				return self._build_doc_subgraph_forward_non_heading_and_heading_type(
-					curr_directed_element=curr_directed_element, next_directed_element=next_directed_element
+				return self._build_doc_subgraph_backtrack_and_root_edge_case(
+					curr_directed_element=curr_directed_element, other_directed_element=next_directed_element
 				)
 			else:
 				return self._build_doc_subgraph_forward_same_directed_element_type(
@@ -468,40 +464,13 @@ class EnhancedMD:
 
 		# Add as heading child
 		curr_directed_element.add_child(next_directed_element)
-		next_directed_element.item = [0]  # Reset non heading directed element item
+		# Reset non heading directed element item and num id
+		next_directed_element.item = [0]
 		if next_directed_element.has_num_id:
 			next_directed_element.num_id = 1
 
-		print("-> build_doc_subgraph_forward_h_nh", "cde: ", repr(curr_directed_element.construct_identifier_string()),
-		      "nde: ", repr(next_directed_element.construct_identifier_string()))
-
-		# Continue recursive graph exploration
+		# Continue recursive doc graph exploration
 		return self._build_doc_subgraph(curr_directed_element=next_directed_element)
-
-	def _build_doc_subgraph_forward_non_heading_and_heading_type(self, curr_directed_element: ee.DirectedElement,
-	                                                     next_directed_element: ee.Heading) -> bool:
-		"""
-
-		:param curr_directed_element:
-		:param next_directed_element:
-		:return need_backtrack:
-		"""
-
-		if curr_directed_element.parent is not None:
-			print("<- build_doc_subgraph_forward_nh_h", "cde: ",
-			      repr(curr_directed_element.construct_identifier_string()))
-			return True
-		else:
-			last_root_directed_element = self.doc_graph[-1]
-			next_directed_element.item = self._get_item_same_hierarchy_level(prev_item=last_root_directed_element.item)
-			if next_directed_element.has_num_id:
-				next_directed_element.num_id = (1 if not last_root_directed_element.has_num_id
-				                                else last_root_directed_element.num_id + 1)
-
-			print("-> build_doc_subgraph_forward_nh_h", "cde: ",
-			      repr(curr_directed_element.construct_identifier_string()),
-			      "nde: ", repr(next_directed_element.construct_identifier_string()))
-			return self._build_doc_subgraph(curr_directed_element=next_directed_element)
 
 	def _build_doc_subgraph_forward_same_directed_element_type(self, curr_directed_element: ee.DirectedElement,
 	                                                   next_directed_element: ee.DirectedElement) -> bool:
@@ -513,28 +482,23 @@ class EnhancedMD:
 
 		# If next directed element has higher hierarchy level, backtrack
 		if curr_directed_element.hierarchy_level > next_directed_element.hierarchy_level:
-			print("<- build_doc_subgraph_forward_same", "cde: ", repr(curr_directed_element.construct_identifier_string()))
 			return True
 		else:
-			# Depending on difference of hierarchy levels add as child or copy parent
+			# Depending on difference of hierarchy levels add as child or next
 			if curr_directed_element.hierarchy_level < next_directed_element.hierarchy_level:
 				curr_directed_element.add_child(next_directed_element)
-				# Add child item
 				next_directed_element.item = self._get_item_child_hierarchy_level(prev_item=curr_directed_element.item)
+				# Reset num id
 				if next_directed_element.has_num_id:
 					next_directed_element.num_id = 1
 
 			elif curr_directed_element.hierarchy_level == next_directed_element.hierarchy_level:
+
 				if curr_directed_element.parent is not None:
 					curr_directed_element.parent.add_child(next_directed_element)
-				# Add next item and num_id
-				next_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-				if next_directed_element.has_num_id:
-					next_directed_element.num_id = (1 if not curr_directed_element.has_num_id
-					                                else curr_directed_element.num_id + 1)
 
-			print("-> build_doc_subgraph_forward_same", "cde: ", repr(curr_directed_element.construct_identifier_string()),
-			      "nde: ", repr(next_directed_element.construct_identifier_string()))
+				next_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
+				self._set_num_id(directed_element=next_directed_element, other_directed_element=curr_directed_element)
 
 			# Continue recursive graph exploration
 			return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -553,8 +517,8 @@ class EnhancedMD:
 				curr_directed_element=curr_directed_element, back_directed_element=back_directed_element
 			)
 		elif (not isinstance(curr_directed_element, ee.Heading)) and isinstance(back_directed_element, ee.Heading):
-			return self._build_doc_subgraph_backtrack_non_heading_and_heading_type(
-				curr_directed_element=curr_directed_element, back_directed_element=back_directed_element
+			return self._build_doc_subgraph_backtrack_and_root_edge_case(
+				curr_directed_element=curr_directed_element, other_directed_element=back_directed_element
 			)
 		else:
 			return self._build_doc_subgraph_backtrack_same_directed_element_type(
@@ -572,39 +536,14 @@ class EnhancedMD:
 
 		if curr_directed_element.parent is not None:
 			curr_directed_element.parent.add_child(back_directed_element)
+
 		back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-		if back_directed_element.has_num_id:
-			back_directed_element.num_id = (1 if not curr_directed_element.has_num_id
-			                                else curr_directed_element.num_id + 1)
+		self._set_num_id_same_hierarchy_level(
+			directed_element=back_directed_element, other_directed_element=curr_directed_element
+		)
 
+		# Continue recursive doc graph exploration
 		return self._build_doc_subgraph(curr_directed_element=back_directed_element)
-
-	def _build_doc_subgraph_backtrack_non_heading_and_heading_type(self, curr_directed_element: ee.DirectedElement,
-	                                                               back_directed_element: ee.Heading) -> bool:
-		"""
-
-		:param curr_directed_element:
-		:param back_directed_element:
-		:return need_backtrack:
-		"""
-
-		if curr_directed_element.parent is not None:
-			print("<- build_doc_subgraph_backtrack_nh_h", "cde: ",
-			      repr(curr_directed_element.construct_identifier_string()))
-			return True
-		else:
-			last_root_directed_element = self.doc_graph[-1]
-			back_directed_element.item = self._get_item_same_hierarchy_level(
-				prev_item=last_root_directed_element.item
-			)
-			if back_directed_element.has_num_id:
-				back_directed_element.num_id = (1 if not last_root_directed_element.has_num_id
-				                                else last_root_directed_element.num_id + 1)
-
-			print("-> build_doc_subgraph_backtrack_nh_h", "cde: ",
-			      repr(curr_directed_element.construct_identifier_string()),
-			      "bde: ", repr(back_directed_element.construct_identifier_string()))
-			return self._build_doc_subgraph(curr_directed_element=back_directed_element)
 
 	def _build_doc_subgraph_backtrack_same_directed_element_type(self, curr_directed_element: ee.DirectedElement,
 	                                                             back_directed_element: ee.DirectedElement) -> bool:
@@ -615,32 +554,42 @@ class EnhancedMD:
 		:return:
 		"""
 
-		# If next directed element has higher hierarchy level, backtrack
+		# If next directed element has higher hierarchy level, continue backtracking
 		if curr_directed_element.hierarchy_level > back_directed_element.hierarchy_level:
-
-			if curr_directed_element.parent is not None:
-				print("<- build_doc_subgraph_backtrack_same", "cde: ",
-				      repr(curr_directed_element.construct_identifier_string()))
-				return True
-			else:
-				last_root_directed_element = self.doc_graph[-1]
-				back_directed_element.item = self._get_item_same_hierarchy_level(last_root_directed_element.item)
-				if back_directed_element.has_num_id:
-					back_directed_element.num_id = (1 if not last_root_directed_element.has_num_id
-					                                else last_root_directed_element.num_id + 1)
-
-				return self._build_doc_subgraph(curr_directed_element=back_directed_element)
+			return self._build_doc_subgraph_backtrack_and_root_edge_case(
+				curr_directed_element=curr_directed_element, other_directed_element=back_directed_element
+			)
 		else:
 			if curr_directed_element.parent is not None:
 				curr_directed_element.parent.add_child(back_directed_element)
-			# Add next item and num_id
-			back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-			if back_directed_element.has_num_id:
-				back_directed_element.num_id = (1 if not curr_directed_element.has_num_id
-				                                else curr_directed_element.num_id + 1)
 
-			# Continue recursive graph exploration
+			back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
+			self._set_num_id(directed_element=back_directed_element, other_directed_element=curr_directed_element)
+
+			# Continue recursive doc graph exploration
 			return self._build_doc_subgraph(curr_directed_element=back_directed_element)
+
+	def _build_doc_subgraph_backtrack_and_root_edge_case(self, curr_directed_element: ee.DirectedElement,
+	                                                     other_directed_element: ee.DirectedElement) -> bool:
+		"""
+
+		:param curr_directed_element:
+		:param other_directed_element:
+		:return need_backtrack:
+		"""
+
+		if curr_directed_element.parent is not None:  # Continue backtracking
+			return True
+		else:
+			last_root_directed_element = self.doc_graph[-1]  # Previous directed element from the doc graph root
+
+			# Append other directed element to doc graph root
+			# (will actually be appended in next _build_doc_subgraph call)
+			other_directed_element.item = self._get_item_same_hierarchy_level(prev_item=last_root_directed_element.item)
+			self._set_num_id(directed_element=other_directed_element, other_directed_element=last_root_directed_element)
+
+			# Continue recursive doc graph exploration from the root
+			return self._build_doc_subgraph(curr_directed_element=other_directed_element)
 
 	def _get_aux_doc_graph_element_and_increment(self) -> ee.DirectedElement:
 		"""
@@ -672,6 +621,25 @@ class EnhancedMD:
 		"""
 
 		return prev_item.copy() + [0]  # Make a copy to avoid pass by reference errors
+
+	@staticmethod
+	def _reset_num_id(directed_element: ee.DirectedElement):
+		"""
+
+		:param directed_element:
+		"""
+
+	@staticmethod
+	def _set_num_id(directed_element: ee.DirectedElement, other_directed_element: ee.DirectedElement):
+		"""
+
+		:param directed_element:
+		:param other_directed_element:
+		"""
+
+		if directed_element.has_num_id:
+			directed_element.num_id = (1 if not other_directed_element.has_num_id
+			                           else other_directed_element.num_id + 1)
 
 	def visualize_doc_graph(self):
 		"""
