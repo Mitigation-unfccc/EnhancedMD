@@ -130,6 +130,9 @@ def test_build_doc_graph_with_starting_heading(fill_test_docx_document_with_star
 	assert test_emd.doc_graph[0].next == test_emd.doc_graph[1]
 	assert test_emd.doc_graph[1].previous == test_emd.doc_graph[0]
 
+	# Ensure correct item same hierarchy level assignment
+	assert test_emd.doc_graph[0].item == test_emd.doc_graph[1].item[:-1] + [test_emd.doc_graph[1].item[-1] - 1]
+
 
 def test_build_doc_graph_with_starting_paragraph(fill_test_docx_document_with_starting_paragraph,
                                                  create_test_styles_dict):
@@ -153,6 +156,9 @@ def test_build_doc_graph_with_starting_paragraph(fill_test_docx_document_with_st
 	assert test_emd.doc_graph[0].next == test_emd.doc_graph[1]
 	assert test_emd.doc_graph[1].previous == test_emd.doc_graph[0]
 
+	# Ensure correct item same hierarchy level assignment
+	assert test_emd.doc_graph[0].item == test_emd.doc_graph[1].item[:-1] + [test_emd.doc_graph[1].item[-1] - 1]
+
 
 def test_build_doc_graph_with_starting_undefined(fill_test_docx_document_with_starting_undefined,
                                                  create_test_styles_dict):
@@ -175,3 +181,6 @@ def test_build_doc_graph_with_starting_undefined(fill_test_docx_document_with_st
 	# Ensure correct undefined and heading next and previous relations
 	assert test_emd.doc_graph[0].next == test_emd.doc_graph[1]
 	assert test_emd.doc_graph[1].previous == test_emd.doc_graph[0]
+
+	# Ensure correct item same hierarchy level assignment
+	assert test_emd.doc_graph[0].item == test_emd.doc_graph[1].item[:-1] + [test_emd.doc_graph[1].item[-1] - 1]

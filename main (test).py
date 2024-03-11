@@ -8,9 +8,10 @@ if __name__ == "__main__":
     styles = {
         "heading": {
             0: ["Normal"],
-            1: ["_ H _Ch_G", "Reg_H__Ch_G"],
-            2: ["Reg_H_1_G", "_ H_1_G"],
-            3: ["Reg_H_2/3_G"]
+            1: ["_ H _Ch_G"],
+            2: ["Reg_H__Ch_G"],
+            3: ["Reg_H_1_G", "_ H_1_G"],
+            4: ["Reg_H_2/3_G"]
         },
         "paragraph": {
             0: ["Normal", "Default"],
