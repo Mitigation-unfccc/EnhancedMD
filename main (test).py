@@ -1,5 +1,6 @@
 from enhanced_md import EnhancedMD
 import logging
+import enhanced_md.enhanced_elements as ee
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -7,9 +8,10 @@ if __name__ == "__main__":
     styles = {
         "heading": {
             0: ["Normal"],
-            1: ["Reg_H__Ch_G", "_ H _Ch_G"],
-            2: ["Reg_H_1_G", "_ H_1_G"],
-            3: ["Reg_H_2/3_G"]
+            1: ["_ H _Ch_G"],
+            2: ["Reg_H__Ch_G"],
+            3: ["Reg_H_1_G", "_ H_1_G"],
+            4: ["Reg_H_2/3_G"]
         },
         "paragraph": {
             0: ["Normal", "Default"],
@@ -24,3 +26,10 @@ if __name__ == "__main__":
     emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
     emd.visualize_doc_graph()
+
+    def explore_num_id(x):
+        print(x.num_id, "@", repr(x.construct_identifier_string()), "@", x.style, "@", repr(x.text))
+        if x.next is not None:
+            explore_num_id(x.next)
+
+    explore_num_id(emd.doc_graph[0])
