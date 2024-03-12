@@ -47,6 +47,7 @@ class EnhancedMD:
 		"""
 
 		self.build_doc_graph()
+		self.build_doc_flat()
 
 	def _get_docx_metadata(self):
 		"""
@@ -640,6 +641,24 @@ class EnhancedMD:
 		if directed_element.has_num_id:
 			directed_element.num_id = (1 if not other_directed_element.has_num_id
 			                           else other_directed_element.num_id + 1)
+
+	def build_doc_flat(self):
+		"""
+
+		"""
+
+		self.doc_flat = []
+		self._build_doc_flat(curr_directed_element=self.doc_graph[0])
+
+	def _build_doc_flat(self, curr_directed_element: ee.DirectedElement):
+		"""
+
+		:param curr_directed_element:
+		"""
+
+		self.doc_flat.append(curr_directed_element)
+		if curr_directed_element.next is not None:
+			self._build_doc_flat(curr_directed_element=curr_directed_element.next)
 
 	def visualize_doc_graph(self):
 		"""

@@ -15,21 +15,14 @@ if __name__ == "__main__":
         },
         "paragraph": {
             0: ["Normal", "Default"],
-            1: ["Reg_Single Txt_G", "_ Single Txt_G"],
+            1: ["Reg_Single Txt_G", "_ Single Txt_G", "Anno_ Single Txt_G"],
             2: ["Reg_Single Txt_G2"],
             3: ["Reg_Single Txt_G3"],
-            4: ["List Paragraph"]
+            4: ["List Paragraph", "toc 1"]
         }
     }
 
-    file_path = "cma2021.docx"
+    file_path = "cmp2022_09_a01.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
     emd.visualize_doc_graph()
-
-    def explore_num_id(x):
-        print(x.num_id, "@", repr(x.construct_identifier_string()), "@", x.style, "@", repr(x.text))
-        if x.next is not None:
-            explore_num_id(x.next)
-
-    explore_num_id(emd.doc_graph[0])
