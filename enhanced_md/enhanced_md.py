@@ -116,6 +116,9 @@ class EnhancedMD:
 				# Checks first for KeyError and only can raise ValueError for hierarchy levels higher than 0
 				if not style_dict[key] and key:
 					raise ValueError(f"{element_name} style dictionary, {key} hierarchy level cannot be empty")
+				if any([type(style) is not str for style in style_dict[key]]):
+					raise ValueError(f"{element_name} style dictionary, {key} hierarchy level "
+					                 f"must be an array containing strings")
 			except KeyError:
 				raise KeyError(f"{element_name} style dictionary, {key} hierarchy level must be defined")
 
@@ -701,3 +704,70 @@ class EnhancedMD:
 			for child in node.children:
 				i = self._visualization_add_nodes_and_edges(G, child, i)
 		return i
+
+	def conditional_num_id_reindex_on_regex(self, conditional_regex: dict):
+		"""
+
+		:param conditional_regex:
+		"""
+
+	def _check_and_unpack_conditional_regex(self, conditional_regex: dict):
+		"""
+		The conditional num id reindexing regex must conform to the same structure as the styles dictionary
+		:param conditional_regex:
+		:return:
+		"""
+
+		# Check heading conditional regex
+		try:
+			heading_conditional_regex = conditional_regex["heading"]
+			self._check_conditional_regex_dict(
+				conditional_regex_dict=heading_conditional_regex,
+				styles_dict=self.heading_styles, element_name="heading"
+			)
+		except KeyError:
+			raise KeyError("conditional regex dictionary missing \"heading\"")
+
+		# Check paragraph conditional regex
+		try:
+			paragraph_conditional_regex = conditional_regex["paragraph"]
+			self._check_conditional_regex_dict(
+				conditional_regex_dict=paragraph_conditional_regex,
+				styles_dict=self.paragraph_styles, element_name="heading"
+			)
+		except KeyError:
+			raise KeyError("conditional regex dictionary missing \"paragraph\"")
+
+	@staticmethod
+	def _check_conditional_regex_dict(conditional_regex_dict: dict, styles_dict: dict, element_name: str):
+		"""
+
+		:param conditional_regex_dict:
+		:param styles_dict:
+		:param element_name:
+		"""
+
+		hierarchy_levels = conditional_regex_dict.keys()
+
+		# Check conditional regex dictionary hierarchy levels consist only of integers
+		if not all(isinstance(key, int) for key in hierarchy_levels):
+			raise KeyError(f"{element_name} conditional regex dictionary hierarchy levels keys "
+			               f"must consist only of integers")
+
+		# Check that the maximum hierarchy level coincides with the correspondent style dictionary
+		if max(hierarchy_levels) != max(styles_dict.keys()):
+			raise KeyError(f"{element_name} conditional regex dictionary hierarchy levels keys "
+			               f"must coincide with correspondent style dictionary")
+
+		# Check conditional regex dictionary hierarchy levels range from 0 to the maximum level without any gaps
+		# and that every hierarchy level is either None or a non-empty array
+		for key in range(max(hierarchy_levels) + 1):
+			try:
+				if (conditional_regex_dict[key] is not None
+					and any([type(regex) is not str for regex in conditional_regex_dict[key]])):
+					raise ValueError(f"{element_name} conditional regex dictionary, "
+					                 f"{key} hierarchy level can only be None or a non-empty array of regex")
+			except KeyError:
+				raise KeyError(f"{element_name} conditional regex dictionary, {key} hierarchy level must be defined")
+
+
