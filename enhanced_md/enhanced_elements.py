@@ -77,8 +77,9 @@ class Content:
 class BaseElement(ABC):
     __slots__ = ("content", "docx_element", "text_format", "text")
 
-    def __init__(self, content: List[Content], docx_element: DocxElement, text_format: TextFormat = TextFormat.HTML):
-        self.content: List[Content] = content
+    def __init__(self, content: List[Content | BaseElement], docx_element: DocxElement,
+                 text_format: TextFormat = TextFormat.HTML):
+        self.content: List[Content | BaseElement] = content
         self.docx_element: DocxElement = docx_element
         self._check_text_format(text_format)
         self.text_format: TextFormat = text_format
@@ -124,7 +125,7 @@ class BaseElement(ABC):
         markdown_patterns = {
             "bold": r"\*\*(.*?)\*\*",
             "italic": r"\*(.*?)\*",
-            "strikethrough": r"~~(.*?)~~",
+            "strike": r"~~(.*?)~~",
             "superscript": r"<sup>(.*?)</sup>",
             "subscript": r"<sub>(.*?)</sub>",
         }
@@ -133,7 +134,7 @@ class BaseElement(ABC):
         cleanup_patterns = {
             "bold": r"\*\*\s*\*\*",
             "italic": r"\*\s*\*",
-            "strikethrough": r"~~\s*~~",
+            "strike": r"~~\s*~~",
             "superscript": r"<sup>\s*</sup>",
             "subscript": r"<sub>\s*</sub>",
         }
@@ -154,7 +155,7 @@ class BaseElement(ABC):
                 # Extract matched texts without the Markdown syntax
                 text1, text2 = match.group(1), match.group(3)
                 # Determine the Markdown syntax based on the key
-                if key in ["bold", "italic", "strikethrough"]:
+                if key in ["bold", "italic", "strike"]:
                     md_open, md_close = match.group(2)[0] * 2, match.group(2)[-1] * 2
                 else:  # For superscript and subscript
                     md_open = f"<{key}>"
@@ -166,13 +167,20 @@ class BaseElement(ABC):
         return text
 
     def _construct_html_text_from_content(self) -> str:
-        return self.clean_html_tags(''.join([content.string_to_html() for content in self.content]))
+        return self.clean_html_tags(
+            ''.join([content.string_to_html() if isinstance(content, Content)
+                     else content._construct_html_text_from_content() for content in self.content])
+        )
 
     def _construct_md_text_from_content(self) -> str:
-        return self.clean_and_merge_markdown(''.join([content.string_to_md() for content in self.content]))
+        return self.clean_and_merge_markdown(
+            ''.join([content.string_to_md() if isinstance(content, Content)
+                     else content._construct_md_text_from_content() for content in self.content])
+        )
 
     def _construct_plain_text_from_content(self) -> str:
-        return ''.join([content.string for content in self.content])
+        return ''.join([content.string if isinstance(content, Content)
+                        else content._construct_plain_text_from_content() for content in self.content])
 
 
 class Hyperlink(BaseElement):
@@ -181,11 +189,11 @@ class Hyperlink(BaseElement):
 
     def __init__(self, content: List[Content], docx_element: DocxElement, address: str = "", fragment: str = "",
                  text_format: TextFormat = TextFormat.HTML):
-        super().__init__(content=content, docx_element=docx_element, text_format=text_format)
         if address and fragment:
             raise ValueError("Hyperlink cannot have both an address and a fragment")
         self.link = address or f"#{fragment}" if fragment else "#"
         self.type = LinkType.URL if address else LinkType.JUMP if fragment else LinkType.NONE
+        super().__init__(content=content, docx_element=docx_element, text_format=text_format)
 
     def _construct_html_text_from_content(self) -> str:
         full_content = super()._construct_html_text_from_content()
@@ -243,6 +251,7 @@ class DirectedElement(BaseElement):
     def _has_num_id(self):
         return len(self.docx_element._element.xpath(".//w:numId/@w:val")) != 0
 
+
 class Heading(DirectedElement):
 
     def __init__(
@@ -287,6 +296,7 @@ class Paragraph(DirectedElement):
     def construct_identifier_string(self) -> str:
         return (f"({'.'.join(map(str, self.heading_item)) if self.heading_item is not None else 'NONE'})"
                 f"\nP_{super().construct_identifier_string()}")
+
 
 class Table(DirectedElement):
 
