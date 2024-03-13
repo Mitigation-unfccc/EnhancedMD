@@ -39,6 +39,9 @@ class EnhancedMD:
 		self.aux_doc_graph_index = 0
 		self.doc_flat = None
 
+		self.repr_array = None
+		self.is_built = False
+
 	def __call__(self, *args, **kwargs):
 		"""
 
@@ -48,6 +51,13 @@ class EnhancedMD:
 
 		self.build_doc_graph()
 		self.build_doc_flat()
+		self.build_repr()
+
+	def __repr__(self):
+		if self.repr_array is None:
+			raise RuntimeError("Graph and flat document has not been built, invoke .__call__() first")
+
+		return f"~{repr(self.docx_metadata['title'])}\n"+"\n".join(map(str, self.repr_array))
 
 	def _get_docx_metadata(self):
 		"""
@@ -344,7 +354,7 @@ class EnhancedMD:
 				return "heading", 1
 			else:
 				# If both heading hierarchy level are 0 print correspondent warning and solve conflict
-				logging.warning(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
+				logging.info(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
 				                f"\n\t(text):\n\t\t{repr(docx_paragraph.text)}")
 				return self._conflict_undefined_directed_element_type()
 
@@ -663,6 +673,29 @@ class EnhancedMD:
 		if curr_directed_element.next is not None:
 			self._build_doc_flat(curr_directed_element=curr_directed_element.next)
 
+	def build_repr(self):
+		"""
+
+		"""
+
+		directed_element_types_dict = {
+			"Heading": "H",
+			"Paragraph": "P"
+		}
+
+		self.repr_array = []
+		for directed_element in self.doc_flat:
+
+			directed_element_type = directed_element_types_dict[type(directed_element).__name__]
+			heading_item_len = (0 if isinstance(directed_element, ee.Heading) or directed_element.heading_item is None
+			                    else len(directed_element.heading_item))
+			space = "·"*5*(len(directed_element.item) + heading_item_len - 1)
+			marker = "" if heading_item_len == 0 and len(directed_element.item) == 1 else "+----"
+			numbering = "" if directed_element.num_id is None else f"({directed_element.num_id})"
+			self.repr_array.append(f"{directed_element_type}|{space}{marker}"
+			                       f"{directed_element.item}${directed_element.style}$"
+			                       f"{numbering}->{repr(directed_element.text)}")
+
 	def visualize_doc_graph(self):
 		"""
 
@@ -705,69 +738,27 @@ class EnhancedMD:
 				i = self._visualization_add_nodes_and_edges(G, child, i)
 		return i
 
-	def conditional_num_id_reindex_on_regex(self, conditional_regex: dict):
+	def conditional_num_id_reindex_on_heading_regex(self, conditional_heading_regex: list):
 		"""
 
-		:param conditional_regex:
+		:param conditional_heading_regex:
 		"""
 
-	def _check_and_unpack_conditional_regex(self, conditional_regex: dict):
-		"""
-		The conditional num id reindexing regex must conform to the same structure as the styles dictionary
-		:param conditional_regex:
-		:return:
-		"""
+		# TODO: Generalize the concept
 
-		# Check heading conditional regex
-		try:
-			heading_conditional_regex = conditional_regex["heading"]
-			self._check_conditional_regex_dict(
-				conditional_regex_dict=heading_conditional_regex,
-				styles_dict=self.heading_styles, element_name="heading"
-			)
-		except KeyError:
-			raise KeyError("conditional regex dictionary missing \"heading\"")
+		reset_num_id = False
+		incr_num_id = 1
+		for directed_element in self.doc_flat:
+			if isinstance(directed_element, ee.Heading):
+				for pattern in conditional_heading_regex:
+					if re.search(pattern, directed_element.text):
+						reset_num_id = True
 
-		# Check paragraph conditional regex
-		try:
-			paragraph_conditional_regex = conditional_regex["paragraph"]
-			self._check_conditional_regex_dict(
-				conditional_regex_dict=paragraph_conditional_regex,
-				styles_dict=self.paragraph_styles, element_name="heading"
-			)
-		except KeyError:
-			raise KeyError("conditional regex dictionary missing \"paragraph\"")
+			elif (isinstance(directed_element, ee.Paragraph)
+			      and len(directed_element.item) == 1 and directed_element.has_num_id):
+				if reset_num_id:
+					incr_num_id = 1
+					reset_num_id = False
 
-	@staticmethod
-	def _check_conditional_regex_dict(conditional_regex_dict: dict, styles_dict: dict, element_name: str):
-		"""
-
-		:param conditional_regex_dict:
-		:param styles_dict:
-		:param element_name:
-		"""
-
-		hierarchy_levels = conditional_regex_dict.keys()
-
-		# Check conditional regex dictionary hierarchy levels consist only of integers
-		if not all(isinstance(key, int) for key in hierarchy_levels):
-			raise KeyError(f"{element_name} conditional regex dictionary hierarchy levels keys "
-			               f"must consist only of integers")
-
-		# Check that the maximum hierarchy level coincides with the correspondent style dictionary
-		if max(hierarchy_levels) != max(styles_dict.keys()):
-			raise KeyError(f"{element_name} conditional regex dictionary hierarchy levels keys "
-			               f"must coincide with correspondent style dictionary")
-
-		# Check conditional regex dictionary hierarchy levels range from 0 to the maximum level without any gaps
-		# and that every hierarchy level is either None or a non-empty array
-		for key in range(max(hierarchy_levels) + 1):
-			try:
-				if (conditional_regex_dict[key] is not None
-					and any([type(regex) is not str for regex in conditional_regex_dict[key]])):
-					raise ValueError(f"{element_name} conditional regex dictionary, "
-					                 f"{key} hierarchy level can only be None or a non-empty array of regex")
-			except KeyError:
-				raise KeyError(f"{element_name} conditional regex dictionary, {key} hierarchy level must be defined")
-
-
+				directed_element.num_id = incr_num_id
+				incr_num_id += 1
