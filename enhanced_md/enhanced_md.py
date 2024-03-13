@@ -39,6 +39,9 @@ class EnhancedMD:
 		self.aux_doc_graph_index = 0
 		self.doc_flat = None
 
+		self.repr_array = None
+		self.is_built = False
+
 	def __call__(self, *args, **kwargs):
 		"""
 
@@ -48,6 +51,13 @@ class EnhancedMD:
 
 		self.build_doc_graph()
 		self.build_doc_flat()
+		self.build_repr()
+
+	def __repr__(self):
+		if self.repr_array is None:
+			raise RuntimeError("Graph and flat document has not been built, invoke .__call__() first")
+
+		return f"~{repr(self.docx_metadata['title'])}\n"+"\n".join(map(str, self.repr_array))
 
 	def _get_docx_metadata(self):
 		"""
@@ -116,6 +126,9 @@ class EnhancedMD:
 				# Checks first for KeyError and only can raise ValueError for hierarchy levels higher than 0
 				if not style_dict[key] and key:
 					raise ValueError(f"{element_name} style dictionary, {key} hierarchy level cannot be empty")
+				if any([type(style) is not str for style in style_dict[key]]):
+					raise ValueError(f"{element_name} style dictionary, {key} hierarchy level "
+					                 f"must be an array containing strings")
 			except KeyError:
 				raise KeyError(f"{element_name} style dictionary, {key} hierarchy level must be defined")
 
@@ -341,7 +354,7 @@ class EnhancedMD:
 				return "heading", 1
 			else:
 				# If both heading hierarchy level are 0 print correspondent warning and solve conflict
-				logging.warning(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
+				logging.info(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
 				                f"\n\t(text):\n\t\t{repr(docx_paragraph.text)}")
 				return self._conflict_undefined_directed_element_type()
 
@@ -660,6 +673,29 @@ class EnhancedMD:
 		if curr_directed_element.next is not None:
 			self._build_doc_flat(curr_directed_element=curr_directed_element.next)
 
+	def build_repr(self):
+		"""
+
+		"""
+
+		directed_element_types_dict = {
+			"Heading": "H",
+			"Paragraph": "P"
+		}
+
+		self.repr_array = []
+		for directed_element in self.doc_flat:
+
+			directed_element_type = directed_element_types_dict[type(directed_element).__name__]
+			heading_item_len = (0 if isinstance(directed_element, ee.Heading) or directed_element.heading_item is None
+			                    else len(directed_element.heading_item))
+			space = "·"*5*(len(directed_element.item) + heading_item_len - 1)
+			marker = "" if heading_item_len == 0 and len(directed_element.item) == 1 else "+----"
+			numbering = "" if directed_element.num_id is None else f"({directed_element.num_id})"
+			self.repr_array.append(f"{directed_element_type}|{space}{marker}"
+			                       f"{directed_element.item}${directed_element.style}$"
+			                       f"{numbering}->{repr(directed_element.text)}")
+
 	def visualize_doc_graph(self):
 		"""
 
@@ -701,3 +737,28 @@ class EnhancedMD:
 			for child in node.children:
 				i = self._visualization_add_nodes_and_edges(G, child, i)
 		return i
+
+	def conditional_num_id_reindex_on_heading_regex(self, conditional_heading_regex: list):
+		"""
+
+		:param conditional_heading_regex:
+		"""
+
+		# TODO: Generalize the concept
+
+		reset_num_id = False
+		incr_num_id = 1
+		for directed_element in self.doc_flat:
+			if isinstance(directed_element, ee.Heading):
+				for pattern in conditional_heading_regex:
+					if re.search(pattern, directed_element.text):
+						reset_num_id = True
+
+			elif (isinstance(directed_element, ee.Paragraph)
+			      and len(directed_element.item) == 1 and directed_element.has_num_id):
+				if reset_num_id:
+					incr_num_id = 1
+					reset_num_id = False
+
+				directed_element.num_id = incr_num_id
+				incr_num_id += 1
