@@ -6,6 +6,6 @@ setup(
     packages=find_packages(exclude=['tests*']),
     license='MIT',
     description='A package to enhance the markdown language',
-    author='Pau Tarragó Navarro & Xavier-Andoni Tibau Alberdi',
+    author='Pau Tarragó Navarra & Xavier-Andoni Tibau Alberdi',
     author_email="p.tarragonavarra@gmail.com"
-)git
+)
