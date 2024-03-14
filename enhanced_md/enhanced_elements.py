@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from abc import ABC
-from typing import List
 from enum import Enum, auto
 from enhanced_md.exceptions import UndefinedTextFormatError
 
@@ -77,9 +76,9 @@ class Content:
 class BaseElement(ABC):
     __slots__ = ("content", "docx_element", "text_format", "text")
 
-    def __init__(self, content: List[Content | BaseElement], docx_element: DocxElement,
+    def __init__(self, content: list[Content | BaseElement], docx_element: DocxElement,
                  text_format: TextFormat = TextFormat.HTML):
-        self.content: List[Content | BaseElement] = content
+        self.content: list[Content | BaseElement] = content
         self.docx_element: DocxElement = docx_element
         self._check_text_format(text_format)
         self.text_format: TextFormat = text_format
@@ -187,7 +186,7 @@ class Hyperlink(BaseElement):
 
     __slots__ = ("link", "type")
 
-    def __init__(self, content: List[Content], docx_element: DocxElement, address: str = "", fragment: str = "",
+    def __init__(self, content: list[Content], docx_element: DocxElement, address: str = "", fragment: str = "",
                  text_format: TextFormat = TextFormat.HTML):
         if address and fragment:
             raise ValueError("Hyperlink cannot have both an address and a fragment")
@@ -216,26 +215,28 @@ class Hyperlink(BaseElement):
 
 class DirectedElement(BaseElement):
 
-    __slots__ = ("style", "hierarchy_level", "parent", "children", "previous", "next", "item", "has_num_id", "num_id")
+    __slots__ = ("style", "hierarchy_level", "parent", "children", "previous", "next", "item",
+                 "has_numbering", "numbering_xml_info", "numbering_index", "numbering")
 
     def __init__(
-            self, content: List[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
+            self, content: list[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
             text_format: TextFormat = TextFormat.HTML,
             parent_element: DirectedElement | None = None,
-            children_elements: List[DirectedElement | None] = None,
+            children_elements: list[DirectedElement | None] = None,
             previous_element: DirectedElement | None = None,
             next_element: DirectedElement | None = None
     ):
         super().__init__(content=content, docx_element=docx_element, text_format=text_format)
-        self.style = style
-        self.hierarchy_level = hierarchy_level
-        self.parent = parent_element
-        self.children = children_elements if children_elements is not None else []
-        self.previous = previous_element
-        self.next = next_element
-        self.item = None
-        self.has_num_id = self._has_num_id()
-        self.num_id = None
+        self.style: str = style
+        self.hierarchy_level: int = hierarchy_level
+        self.parent: DirectedElement = parent_element
+        self.children: list[DirectedElement] = children_elements if children_elements is not None else []
+        self.previous: DirectedElement = previous_element
+        self.next: DirectedElement = next_element
+        self.item: list[int] | None = None
+        self._has_numbering()  # Initializes has_numbering and numbering_xml_info
+        self.numbering_index: int | None = None
+        self.numbering: str | None = None
 
     def add_child(self, child: DirectedElement):
         self.children.append(child)
@@ -248,16 +249,54 @@ class DirectedElement(BaseElement):
     def construct_identifier_string(self) -> str:
         return ".".join(map(str, self.item))
 
-    def _has_num_id(self):
-        return len(self.docx_element._element.xpath(".//w:numId/@w:val")) != 0
+    def _has_numbering(self):
+        num_id, ilvl = self._obtain_num_id_and_ilvl()
+        if num_id is None:  # If no numPr has been found inside pPr or style then it has no numbering
+            return
+
+        # Detect whether there exists a num with given numId
+        if len(self.docx_element._element.xpath(f".//w:num[@w:numId={num_id}]")) != 0:
+            self.has_numbering = True
+            self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
+        else:
+            pass
+
+    def _obtain_num_id_and_ilvl(self) -> tuple[str | None, str | None]:
+
+        # Detect whether style numPr has been overridden in pPr and Obtain numId and ilvl inside numPr
+        if len(self.docx_element._element.xpath(".//w:numPr")) != 0:
+            num_id = self.docx_element._element.xpath(".//w:numPr/w:numId/@w:val")[0]
+            i_lvl = self.docx_element._element.xpath(".//w:numPr/w:ilvl/@w:val")[0]
+        else:
+            # Detect whether numPr exists inside style
+            if len(self.docx_element.style._element.xpath(".//w:numPr")) == 0:
+                self.has_numbering = False
+                return None, None  # Return None to signal has_numbering already assigned and stop procedure
+
+            num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")[0]
+            i_lvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")[0]
+
+        return num_id, i_lvl
+
+    def _obtain_numbering_xml_info(self, num_id: str, ilvl: str):
+        abstract_num_id = self.docx_element._element.xpath(f".//w:num[@w:numId={num_id}/w:abstractNumId/@w:val]")
+        self.numbering_xml_info = {
+            "type": self.docx_element._element.xpath(
+                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:numFmt/@w:val")[0],
+            "format": self.docx_element._element.xpath(
+                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:lvlText/@w:val")[0],
+            "start": int(self.docx_element._element.xpath(
+                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:start/@w:val")[0])
+        }
+
 
 
 class Heading(DirectedElement):
 
     def __init__(
-            self, content: List[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
+            self, content: list[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
             text_format: TextFormat = TextFormat.HTML,
-            parent_element: DirectedElement | None = None, children_elements: List[DirectedElement] | None = None,
+            parent_element: DirectedElement | None = None, children_elements: list[DirectedElement] | None = None,
             previous_element: DirectedElement | None = None, next_element: DirectedElement | None = None):
         super().__init__(
             content=content, docx_element=docx_element,
@@ -272,9 +311,9 @@ class Paragraph(DirectedElement):
     __slots__ = "heading_item"
 
     def __init__(
-            self, content: List[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
+            self, content: list[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
             text_format: TextFormat = TextFormat.HTML,
-            parent_element: DirectedElement | None = None, children_elements: List[DirectedElement] | None = None,
+            parent_element: DirectedElement | None = None, children_elements: list[DirectedElement] | None = None,
             previous_element: DirectedElement | None = None, next_element: DirectedElement | None = None):
         super().__init__(
             content=content, docx_element=docx_element,
@@ -302,9 +341,9 @@ class Table(DirectedElement):
 
     __slots__ = "heading_item"
 
-    def __init__(self, content: List[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
+    def __init__(self, content: list[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
                  text_format: TextFormat = TextFormat.HTML,
-                 parent_element: DirectedElement | None = None, children_elements: List[DirectedElement] | None = None,
+                 parent_element: DirectedElement | None = None, children_elements: list[DirectedElement] | None = None,
                  previous_element: DirectedElement | None = None, next_element: DirectedElement | None = None):
         super().__init__(
             content=content, docx_element=docx_element,

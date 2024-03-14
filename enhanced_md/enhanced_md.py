@@ -1,6 +1,5 @@
 import logging
 import re
-from typing import List, Tuple
 
 import docx
 from docx.text.paragraph import Paragraph as DocxParagraph
@@ -199,7 +198,7 @@ class EnhancedMD:
 				style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
 			))
 
-	def _process_docx_paragraph_content(self, docx_paragraph: DocxParagraph) -> List[ee.Content | ee.Hyperlink]:
+	def _process_docx_paragraph_content(self, docx_paragraph: DocxParagraph) -> list[ee.Content | ee.Hyperlink]:
 		"""
 
 		:param docx_paragraph: Docx paragraph class
@@ -225,7 +224,7 @@ class EnhancedMD:
 		return paragraph_content
 
 	@staticmethod
-	def _process_docx_run(docx_run: DocxRun) -> List[ee.Content]:
+	def _process_docx_run(docx_run: DocxRun) -> list[ee.Content]:
 		"""
 
 		:param docx_run:
@@ -278,8 +277,8 @@ class EnhancedMD:
 			address=docx_hyperlink.address, fragment=docx_hyperlink.fragment
 		)
 
-	def _concat_run_content_to_content_list(self, content_list: List[ee.Content | ee.Hyperlink],
-	                                        run_content: List[ee.Content]) -> List[ee.Content | ee.Hyperlink]:
+	def _concat_run_content_to_content_list(self, content_list: list[ee.Content | ee.Hyperlink],
+	                                        run_content: list[ee.Content]) -> list[ee.Content | ee.Hyperlink]:
 		"""
 
 		:param content_list:
@@ -325,7 +324,7 @@ class EnhancedMD:
 			and content_a.font_style == content_b.font_style
 		)
 
-	def _detect_directed_element_type_and_hierarchy_level(self, docx_paragraph: DocxParagraph) -> Tuple[str, int]:
+	def _detect_directed_element_type_and_hierarchy_level(self, docx_paragraph: DocxParagraph) -> tuple[str, int]:
 		"""
 		:param docx_paragraph:
 		:return directed_element_type, hierarchy_level:
@@ -614,7 +613,7 @@ class EnhancedMD:
 		return aux_doc_graph_element
 
 	@staticmethod
-	def _get_item_same_hierarchy_level(prev_item: List[int]) -> List[int]:
+	def _get_item_same_hierarchy_level(prev_item: list[int]) -> list[int]:
 		"""
 
 		:param prev_item:
@@ -624,7 +623,7 @@ class EnhancedMD:
 		return prev_item[:-1] + [prev_item[-1] + 1]
 
 	@staticmethod
-	def _get_item_child_hierarchy_level(prev_item: List[int]) -> List[int]:
+	def _get_item_child_hierarchy_level(prev_item: list[int]) -> list[int]:
 		"""
 
 		:param prev_item:
@@ -762,3 +761,4 @@ class EnhancedMD:
 
 				directed_element.num_id = incr_num_id
 				incr_num_id += 1
+ 
