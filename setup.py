@@ -8,4 +8,4 @@ setup(
     description='A package to enhance the markdown language',
     author='Pau Tarragó Navarro & Xavier-Andoni Tibau Alberdi',
     author_email="p.tarragonavarra@gmail.com"
-)
+)git

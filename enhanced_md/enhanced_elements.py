@@ -230,6 +230,7 @@ class DirectedElement(BaseElement):
     def construct_identifier_string(self) -> str:
         return ".".join(map(str, self.item))
 
+
 class Heading(DirectedElement):
 
     def __init__(
@@ -272,6 +273,7 @@ class Paragraph(DirectedElement):
     def construct_identifier_string(self) -> str:
         return (f"({'.'.join(map(str, self.heading_item)) if self.heading_item is not None else 'NONE'})"
                 f"\nP_{super().construct_identifier_string()}")
+
 
 class Table(DirectedElement):
 
