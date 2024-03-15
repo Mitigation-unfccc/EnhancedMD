@@ -4,6 +4,7 @@ import re
 from abc import ABC
 from enum import Enum, auto
 from enhanced_md.exceptions import UndefinedTextFormatError
+from enhanced_md.config import NUMBERING_TYPE_REGEX, NUMBERING_TYPE_INT_TO_STR
 
 from docx.text.paragraph import Paragraph as DocxParagraph
 from docx.text.hyperlink import Hyperlink as DocxHyperlink
@@ -292,6 +293,8 @@ class DirectedElement(BaseElement):
         abstract_num_id = self.docx_element.part.numbering_part._element.xpath(
             f".//w:num[@w:numId={num_id}]/w:abstractNumId/@w:val")[0]
         return {
+            "num_id": num_id,
+            "ilvl": ilvl,
             "type": self.docx_element.part.numbering_part._element.xpath(
                 f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:numFmt/@w:val")[0],
             "format": self.docx_element.part.numbering_part._element.xpath(
@@ -305,6 +308,8 @@ class DirectedElement(BaseElement):
         if len(self.docx_element.style._element.xpath(".//w:numPr")) == 0:
             # Set general numbering_xml_info
             self.numbering_xml_info = {
+                "num_id": num_id,
+                "ilvl": ilvl,
                 "type": "decimal",
                 "format": "%1",
                 "start": 1
@@ -318,11 +323,10 @@ class DirectedElement(BaseElement):
                 ilvl = ilvl[0]
             self.numbering_xml_info = self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
 
-        self._detect_numbering_in_text(num_id=num_id, ilvl=ilvl)
+        self._detect_numbering_in_text()
 
-    def _detect_numbering_in_text(self, num_id: str, ilvl: str):
-        numbering_pattern = self._construct_numbering_pattern_regex(num_id=num_id, ilvl=ilvl)
-        print(numbering_pattern)
+    def _detect_numbering_in_text(self):
+        numbering_pattern = self._construct_numbering_pattern_regex()
 
         # Detect if numbering pattern is present in text
         if re.search(numbering_pattern, self.text):
@@ -330,7 +334,7 @@ class DirectedElement(BaseElement):
         else:
             self.has_numbering = False
 
-    def _construct_numbering_pattern_regex(self, num_id: str, ilvl: str) -> str:
+    def _construct_numbering_pattern_regex(self) -> str:
 
         # Separate format string
         format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
@@ -340,10 +344,12 @@ class DirectedElement(BaseElement):
         for format_str_part in format_str:
             if format_str_part[0] == "%":
                 _ilvl = str(int(format_str_part[1:]) - 1)
-                if _ilvl == ilvl:
+                if _ilvl == self.numbering_xml_info["ilvl"]:
                     numbering_pattern_part = NUMBERING_TYPE_REGEX[self.numbering_xml_info["type"]]
                 else:
-                    _numbering_xml_info = self._obtain_numbering_xml_info(num_id=num_id, ilvl=_ilvl)
+                    _numbering_xml_info = self._obtain_numbering_xml_info(
+                        num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
+                    )
                     numbering_pattern_part = NUMBERING_TYPE_REGEX[_numbering_xml_info["type"]]
             else:
                 numbering_pattern_part = re.escape(format_str_part)
@@ -352,22 +358,43 @@ class DirectedElement(BaseElement):
 
         return numbering_pattern
 
-NUMBERING_TYPE_REGEX = {
-    "bullet": r"\u2022",  # •, TODO: Find commonly used bullet characters
-    "decimal": r"\d+",
-    "decimalZero": r"0\d+",
-    "decimalEnclosedCircle": r"",
-    "decimalEnclosedFullStop": r"\d+\.",
-    "decimalEnclosedParen": r"\(\d+\)",
-    "cardinalText": r"",  # TODO: Find for all languages
-    "ordinalText": r"",  # TODO: Find for all languages
-    "lowerLetter": r"[a-z]+",  # TODO: Find for all languages
-    "upperLetter": r"[A-Z]",  # TODO: Find for all languages
-    "lowerRoman": r"s{0,4}(m{0,4})(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})",
-    "upperRoman": r"S{0,4}(M{0,4})(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})",
-    "chicago": r"",
-    "none": r"",
-}
+    def construct_formatted_numbering(self):
+        if self.has_numbering:
+            if self.numbering_index is not None:
+                self.numbering = self._construct_numbering_str()
+            else:
+                raise ValueError(f"Cannot construct numbering string "
+                                 f"for {self.construct_identifier_string()} without assigning a numbering index first")
+        else:
+            raise ValueError(f"Cannot construct numbering string "
+                             f"for {self.construct_identifier_string()} without numbering")
+
+    def _construct_numbering_str(self) -> str:
+        # Separate format string
+        format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
+
+        numbering_str = ""
+        for format_str_part in format_str:
+            if format_str_part[0] == "%":
+                _ilvl = str(int(format_str_part[1:]) - 1)
+                if _ilvl == self.numbering_xml_info["ilvl"]:
+                    numbering_str_part = NUMBERING_TYPE_INT_TO_STR[self.numbering_xml_info["type"]](
+                        self.numbering_index
+                    )
+                else:
+                    _numbering_xml_info = self._obtain_numbering_xml_info(
+                        num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
+                    )
+                    numbering_str_part = NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](0)
+            else:
+                numbering_str_part = format_str_part
+
+            numbering_str += numbering_str_part
+
+        return numbering_str
+
+    def _get_ancestors_numbering_index(self) -> list[int]:
+        return []
 
 
 class Heading(DirectedElement):

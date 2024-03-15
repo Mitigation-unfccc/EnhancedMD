@@ -634,6 +634,7 @@ class EnhancedMD:
 
 		if directed_element.has_numbering:
 			directed_element.numbering_index = 1
+			directed_element.construct_formatted_numbering()
 
 	@staticmethod
 	def _set_numbering(directed_element: ee.DirectedElement, other_directed_element: ee.DirectedElement):
@@ -646,6 +647,7 @@ class EnhancedMD:
 		if directed_element.has_numbering:
 			directed_element.numbering_index = (1 if not other_directed_element.has_numbering
 			                                    else other_directed_element.numbering_index + 1)
+			directed_element.construct_formatted_numbering()
 
 	def build_doc_flat(self):
 		"""
@@ -683,10 +685,10 @@ class EnhancedMD:
 			                    else len(directed_element.heading_item))
 			space = "·"*5*(len(directed_element.item) + heading_item_len - 1)
 			marker = "" if heading_item_len == 0 and len(directed_element.item) == 1 else "+----"
-			numbering = "" if not directed_element.has_numbering else f"({directed_element.numbering_index})"
+			numbering = "" if not directed_element.has_numbering else f"${directed_element.numbering}$ "
 			self.repr_array.append(f"{directed_element_type}|{space}{marker}"
-			                       f"{directed_element.item}${directed_element.style}$"
-			                       f"{numbering}->{repr(directed_element.text)}")
+			                       f"{directed_element.item}({directed_element.style}) {numbering}"
+			                       f"->{repr(directed_element.text)}")
 
 	def visualize_doc_graph(self):
 		"""
@@ -753,4 +755,5 @@ class EnhancedMD:
 					reset_numbering = False
 
 				directed_element.numbering_index = incr_numbering
+				directed_element.construct_formatted_numbering()
 				incr_numbering += 1

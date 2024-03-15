@@ -1,5 +1,7 @@
-from enhanced_md import EnhancedMD
 import logging
+import re
+
+from enhanced_md import EnhancedMD
 import enhanced_md.enhanced_elements as ee
 
 if __name__ == "__main__":
@@ -25,4 +27,5 @@ if __name__ == "__main__":
     file_path = "cma2021.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
+    emd.conditional_numbering_reindex_on_heading_regex([re.escape("Decision")])
     print(emd)
