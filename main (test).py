@@ -25,5 +25,4 @@ if __name__ == "__main__":
     file_path = "cma2021.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
-    emd.conditional_num_id_reindex_on_heading_regex(conditional_heading_regex=["Decision"])
     print(emd)

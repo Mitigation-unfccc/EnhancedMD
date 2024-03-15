@@ -234,7 +234,9 @@ class DirectedElement(BaseElement):
         self.previous: DirectedElement = previous_element
         self.next: DirectedElement = next_element
         self.item: list[int] | None = None
-        self._has_numbering()  # Initializes has_numbering and numbering_xml_info
+        self.has_numbering: bool | None = None
+        self.numbering_xml_info: dict | None = None
+        self._has_numbering()
         self.numbering_index: int | None = None
         self.numbering: str | None = None
 
@@ -254,19 +256,23 @@ class DirectedElement(BaseElement):
         if num_id is None:  # If no numPr has been found inside pPr or style then it has no numbering
             return
 
-        # Detect whether there exists a num with given numId
-        if len(self.docx_element._element.xpath(f".//w:num[@w:numId={num_id}]")) != 0:
+        # Detect whether there exists a num with given numId inside numbering.xml
+        if len(self.docx_element.part.numbering_part._element.xpath(f".//w:num[@w:numId={num_id}]")) != 0:
             self.has_numbering = True
-            self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
+            self.numbering_xml_info = self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
         else:
-            pass
+            self._overriden_inexisting_numbering(num_id=num_id, ilvl=ilvl)
 
     def _obtain_num_id_and_ilvl(self) -> tuple[str | None, str | None]:
 
         # Detect whether style numPr has been overridden in pPr and Obtain numId and ilvl inside numPr
         if len(self.docx_element._element.xpath(".//w:numPr")) != 0:
             num_id = self.docx_element._element.xpath(".//w:numPr/w:numId/@w:val")[0]
-            i_lvl = self.docx_element._element.xpath(".//w:numPr/w:ilvl/@w:val")[0]
+            ilvl = self.docx_element._element.xpath(".//w:numPr/w:ilvl/@w:val")
+            if len(ilvl) == 0:
+                ilvl = "0"
+            else:
+                ilvl = ilvl[0]
         else:
             # Detect whether numPr exists inside style
             if len(self.docx_element.style._element.xpath(".//w:numPr")) == 0:
@@ -274,21 +280,94 @@ class DirectedElement(BaseElement):
                 return None, None  # Return None to signal has_numbering already assigned and stop procedure
 
             num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")[0]
-            i_lvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")[0]
+            ilvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")
+            if len(ilvl) == 0:
+                ilvl = "0"
+            else:
+                ilvl = ilvl[0]
 
-        return num_id, i_lvl
+        return num_id, ilvl
 
-    def _obtain_numbering_xml_info(self, num_id: str, ilvl: str):
-        abstract_num_id = self.docx_element._element.xpath(f".//w:num[@w:numId={num_id}/w:abstractNumId/@w:val]")
-        self.numbering_xml_info = {
-            "type": self.docx_element._element.xpath(
+    def _obtain_numbering_xml_info(self, num_id: str, ilvl: str) -> dict:
+        abstract_num_id = self.docx_element.part.numbering_part._element.xpath(
+            f".//w:num[@w:numId={num_id}]/w:abstractNumId/@w:val")[0]
+        return {
+            "type": self.docx_element.part.numbering_part._element.xpath(
                 f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:numFmt/@w:val")[0],
-            "format": self.docx_element._element.xpath(
+            "format": self.docx_element.part.numbering_part._element.xpath(
                 f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:lvlText/@w:val")[0],
-            "start": int(self.docx_element._element.xpath(
+            "start": int(self.docx_element.part.numbering_part._element.xpath(
                 f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:start/@w:val")[0])
         }
 
+    def _overriden_inexisting_numbering(self, num_id: str, ilvl: str):
+        # Detect whether numPr exists inside style
+        if len(self.docx_element.style._element.xpath(".//w:numPr")) == 0:
+            # Set general numbering_xml_info
+            self.numbering_xml_info = {
+                "type": "decimal",
+                "format": "%1",
+                "start": 1
+            }
+        else:
+            num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")[0]
+            ilvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")
+            if len(ilvl) == 0:
+                ilvl = "0"
+            else:
+                ilvl = ilvl[0]
+            self.numbering_xml_info = self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
+
+        self._detect_numbering_in_text(num_id=num_id, ilvl=ilvl)
+
+    def _detect_numbering_in_text(self, num_id: str, ilvl: str):
+        numbering_pattern = self._construct_numbering_pattern_regex(num_id=num_id, ilvl=ilvl)
+        print(numbering_pattern)
+
+        # Detect if numbering pattern is present in text
+        if re.search(numbering_pattern, self.text):
+            self.has_numbering = True
+        else:
+            self.has_numbering = False
+
+    def _construct_numbering_pattern_regex(self, num_id: str, ilvl: str) -> str:
+
+        # Separate format string
+        format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
+
+        # ^: Ensures match at the beginning of the string
+        numbering_pattern = r"^"
+        for format_str_part in format_str:
+            if format_str_part[0] == "%":
+                _ilvl = str(int(format_str_part[1:]) - 1)
+                if _ilvl == ilvl:
+                    numbering_pattern_part = NUMBERING_TYPE_REGEX[self.numbering_xml_info["type"]]
+                else:
+                    _numbering_xml_info = self._obtain_numbering_xml_info(num_id=num_id, ilvl=_ilvl)
+                    numbering_pattern_part = NUMBERING_TYPE_REGEX[_numbering_xml_info["type"]]
+            else:
+                numbering_pattern_part = re.escape(format_str_part)
+
+            numbering_pattern += numbering_pattern_part
+
+        return numbering_pattern
+
+NUMBERING_TYPE_REGEX = {
+    "bullet": r"\u2022",  # •, TODO: Find commonly used bullet characters
+    "decimal": r"\d+",
+    "decimalZero": r"0\d+",
+    "decimalEnclosedCircle": r"",
+    "decimalEnclosedFullStop": r"\d+\.",
+    "decimalEnclosedParen": r"\(\d+\)",
+    "cardinalText": r"",  # TODO: Find for all languages
+    "ordinalText": r"",  # TODO: Find for all languages
+    "lowerLetter": r"[a-z]+",  # TODO: Find for all languages
+    "upperLetter": r"[A-Z]",  # TODO: Find for all languages
+    "lowerRoman": r"s{0,4}(m{0,4})(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})",
+    "upperRoman": r"S{0,4}(M{0,4})(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})",
+    "chicago": r"",
+    "none": r"",
+}
 
 
 class Heading(DirectedElement):
