@@ -625,19 +625,17 @@ class EnhancedMD:
 
 		return prev_item.copy() + [0]  # Make a copy to avoid pass by reference errors
 
-	@staticmethod
-	def _reset_numbering(directed_element: ee.DirectedElement):
+	def _reset_numbering(self, directed_element: ee.DirectedElement):
 		"""
 
 		:param directed_element:
 		"""
 
 		if directed_element.has_numbering:
-			directed_element.numbering_index = 1
+			directed_element.numbering_index = self._get_start_numbering(directed_element=directed_element)
 			directed_element.construct_formatted_numbering()
 
-	@staticmethod
-	def _set_numbering(directed_element: ee.DirectedElement, other_directed_element: ee.DirectedElement):
+	def _set_numbering(self, directed_element: ee.DirectedElement, other_directed_element: ee.DirectedElement):
 		"""
 
 		:param directed_element:
@@ -645,9 +643,17 @@ class EnhancedMD:
 		"""
 
 		if directed_element.has_numbering:
-			directed_element.numbering_index = (1 if not other_directed_element.has_numbering
+			directed_element.numbering_index = (self._get_start_numbering(directed_element=directed_element)
+			                                    if not other_directed_element.has_numbering
 			                                    else other_directed_element.numbering_index + 1)
 			directed_element.construct_formatted_numbering()
+
+	@staticmethod
+	def _get_start_numbering(directed_element: ee.DirectedElement) -> int:
+		if directed_element.numbering_index_in_text is not None:
+			return directed_element.numbering_index_in_text
+		else:
+			return directed_element.numbering_xml_info["start"]
 
 	def build_doc_flat(self):
 		"""
@@ -731,29 +737,3 @@ class EnhancedMD:
 			for child in node.children:
 				i = self._visualization_add_nodes_and_edges(G, child, i)
 		return i
-
-	def conditional_numbering_reindex_on_heading_regex(self, conditional_heading_regex: list):
-		"""
-
-		:param conditional_heading_regex:
-		"""
-
-		# TODO: Generalize the concept
-
-		reset_numbering = False
-		incr_numbering = 1
-		for directed_element in self.doc_flat:
-			if isinstance(directed_element, ee.Heading):
-				for pattern in conditional_heading_regex:
-					if re.search(pattern, directed_element.text):
-						reset_numbering = True
-
-			elif (isinstance(directed_element, ee.Paragraph)
-			      and len(directed_element.item) == 1 and directed_element.has_numbering):
-				if reset_numbering:
-					incr_numbering = 1
-					reset_numbering = False
-
-				directed_element.numbering_index = incr_numbering
-				directed_element.construct_formatted_numbering()
-				incr_numbering += 1

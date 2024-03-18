@@ -4,7 +4,7 @@ import re
 from abc import ABC
 from enum import Enum, auto
 from enhanced_md.exceptions import UndefinedTextFormatError
-from enhanced_md.config import NUMBERING_TYPE_REGEX, NUMBERING_TYPE_INT_TO_STR
+from enhanced_md.config import NUMBERING_TYPE_REGEX, NUMBERING_TYPE_INT_TO_STR, NUMBERING_TYPE_STR_TO_INT
 
 from docx.text.paragraph import Paragraph as DocxParagraph
 from docx.text.hyperlink import Hyperlink as DocxHyperlink
@@ -217,7 +217,7 @@ class Hyperlink(BaseElement):
 class DirectedElement(BaseElement):
 
     __slots__ = ("style", "hierarchy_level", "parent", "children", "previous", "next", "item",
-                 "has_numbering", "numbering_xml_info", "numbering_index", "numbering")
+                 "has_numbering", "numbering_xml_info", "numbering_index_in_text", "numbering_index", "numbering")
 
     def __init__(
             self, content: list[Content], docx_element: DocxElement, style: str, hierarchy_level: int,
@@ -237,6 +237,7 @@ class DirectedElement(BaseElement):
         self.item: list[int] | None = None
         self.has_numbering: bool | None = None
         self.numbering_xml_info: dict | None = None
+        self.numbering_index_in_text: int | None = None
         self._has_numbering()
         self.numbering_index: int | None = None
         self.numbering: str | None = None
@@ -331,6 +332,7 @@ class DirectedElement(BaseElement):
         # Detect if numbering pattern is present in text
         if re.search(numbering_pattern, self.text):
             self.has_numbering = True
+            self.numbering_index_in_text = self._get_numbering_index_in_text(numbering_pattern=numbering_pattern)
         else:
             self.has_numbering = False
 
@@ -338,6 +340,7 @@ class DirectedElement(BaseElement):
 
         # Separate format string
         format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
+        print(self.numbering_xml_info["format"], self.text)
 
         # ^: Ensures match at the beginning of the string
         numbering_pattern = r"^"
@@ -345,16 +348,15 @@ class DirectedElement(BaseElement):
             if format_str_part[0] == "%":
                 _ilvl = str(int(format_str_part[1:]) - 1)
                 if _ilvl == self.numbering_xml_info["ilvl"]:
-                    numbering_pattern_part = NUMBERING_TYPE_REGEX[self.numbering_xml_info["type"]]
+                    # Specify the regex pattern for the correspondent ilvl as the matching group
+                    numbering_pattern += "(" + NUMBERING_TYPE_REGEX[self.numbering_xml_info["type"]] + ")"
                 else:
                     _numbering_xml_info = self._obtain_numbering_xml_info(
                         num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
                     )
-                    numbering_pattern_part = NUMBERING_TYPE_REGEX[_numbering_xml_info["type"]]
+                    numbering_pattern += NUMBERING_TYPE_REGEX[_numbering_xml_info["type"]]
             else:
-                numbering_pattern_part = re.escape(format_str_part)
-
-            numbering_pattern += numbering_pattern_part
+                numbering_pattern += re.escape(format_str_part)
 
         return numbering_pattern
 
@@ -378,24 +380,29 @@ class DirectedElement(BaseElement):
             if format_str_part[0] == "%":
                 _ilvl = str(int(format_str_part[1:]) - 1)
                 if _ilvl == self.numbering_xml_info["ilvl"]:
-                    numbering_str_part = NUMBERING_TYPE_INT_TO_STR[self.numbering_xml_info["type"]](
+                    numbering_str += NUMBERING_TYPE_INT_TO_STR[self.numbering_xml_info["type"]](
                         self.numbering_index
                     )
                 else:
                     _numbering_xml_info = self._obtain_numbering_xml_info(
                         num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
                     )
-                    numbering_str_part = NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](0)
+                    numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](0)
             else:
-                numbering_str_part = format_str_part
-
-            numbering_str += numbering_str_part
+                numbering_str += format_str_part
 
         return numbering_str
 
     def _get_ancestors_numbering_index(self) -> list[int]:
         return []
 
+    def _get_numbering_index_in_text(self, numbering_pattern: str) -> int:
+        match = re.match(numbering_pattern, self.text)
+        if match:
+            self.text = re.sub(numbering_pattern, "", self.text)  # Remove the numbering from the text
+            return NUMBERING_TYPE_STR_TO_INT[self.numbering_xml_info["type"]](match.group(1))
+        else:
+            raise ValueError("Could not find a match for the regex of correspondent ilvl")  # TODO: Upgrade
 
 class Heading(DirectedElement):
 

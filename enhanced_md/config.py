@@ -38,3 +38,21 @@ NUMBERING_TYPE_INT_TO_STR = {
     "chicago": "TODO",
     "none": "",
 }
+
+
+NUMBERING_TYPE_STR_TO_INT = {
+    "bullet": 0,  # •, TODO: Define well those that do not have an inherit int value
+    "decimal": lambda x: int(x),
+    "decimalZero": lambda x: int(x),
+    "decimalEnclosedCircle": r"TODO",
+    "decimalEnclosedFullStop": lambda x: int(x.rstrip(".")),
+    "decimalEnclosedParen": lambda x: int(x.strip("()")),
+    "cardinalText": r"",  # TODO: Find for all languages
+    "ordinalText": r"",  # TODO: Find for all languages
+    "lowerLetter": lambda x: sum((ord(char) - 96) * (26 ** i) for i, char in enumerate(reversed(x))),  # TODO: Find for all alphabets
+    "upperLetter": lambda x: sum((ord(char) - 96) * (26 ** i) for i, char in enumerate(reversed(x.lower()))),
+    "lowerRoman": lambda x: roman.fromRoman(x.upper()),
+    "upperRoman": lambda x: roman.fromRoman(x),
+    "chicago": "TODO",
+    "none": 0,
+}

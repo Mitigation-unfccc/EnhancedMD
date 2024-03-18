@@ -20,12 +20,11 @@ if __name__ == "__main__":
             1: ["Reg_Single Txt_G", "_ Single Txt_G", "Anno_ Single Txt_G"],
             2: ["Reg_Single Txt_G2"],
             3: ["Reg_Single Txt_G3"],
-            4: ["List Paragraph", "toc 1"]
+            4: ["List Paragraph", "toc 1", "toc 2"]
         }
     }
 
-    file_path = "cma2021.docx"
+    file_path = "CMA5_post_session_report.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
-    emd.conditional_numbering_reindex_on_heading_regex([re.escape("Decision")])
     print(emd)
