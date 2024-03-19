@@ -293,7 +293,6 @@ class DirectedElement(BaseElement):
     def _obtain_numbering_xml_info(self, num_id: str, ilvl: str) -> dict:
         abstract_num_id = self.docx_element.part.numbering_part._element.xpath(
             f".//w:num[@w:numId={num_id}]/w:abstractNumId/@w:val")[0]
-        print(num_id, ilvl, abstract_num_id, self.text)
 
         #
         if len(self.docx_element.part.numbering_part._element.xpath(
@@ -330,7 +329,14 @@ class DirectedElement(BaseElement):
                 "start": 1
             }  # TODO: Upgrade logic
         else:
-            num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")[0]
+            num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")
+            if len(num_id) == 0:
+                based_style_id = self.docx_element.style._element.xpath(".//w:basedOn/@w:val")[0]
+                based_style = self.docx_element.part.styles._element.xpath(
+                    f".//w:style[@w:styleId='{based_style_id}']")[0]
+                num_id = based_style.xpath(".//w:numPr/w:numId/@w:val")[0]
+            else:
+                num_id = num_id[0]
             ilvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")
             if len(ilvl) == 0:
                 ilvl = "0"  # TODO: Upgrade logic in case missing ilvl
@@ -356,7 +362,7 @@ class DirectedElement(BaseElement):
         format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
 
         # ^: Ensures match at the beginning of the string
-        numbering_pattern = r"^"
+        numbering_pattern = r"^\t*"
         for format_str_part in format_str:
             if format_str_part[0] == "%":
                 _ilvl = str(int(format_str_part[1:]) - 1)
