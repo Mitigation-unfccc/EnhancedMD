@@ -417,6 +417,7 @@ class DirectedElement(BaseElement):
         else:
             raise ValueError("Could not find a match for the regex of correspondent ilvl")  # TODO: Upgrade
 
+
 class Heading(DirectedElement):
 
     def __init__(
