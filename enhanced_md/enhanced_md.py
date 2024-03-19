@@ -1,6 +1,5 @@
 import logging
 import re
-from typing import List, Tuple
 
 import docx
 from docx.text.paragraph import Paragraph as DocxParagraph
@@ -199,7 +198,7 @@ class EnhancedMD:
 				style=docx_paragraph.style.name, hierarchy_level=hierarchy_level
 			))
 
-	def _process_docx_paragraph_content(self, docx_paragraph: DocxParagraph) -> List[ee.Content | ee.Hyperlink]:
+	def _process_docx_paragraph_content(self, docx_paragraph: DocxParagraph) -> list[ee.Content | ee.Hyperlink]:
 		"""
 
 		:param docx_paragraph: Docx paragraph class
@@ -225,7 +224,7 @@ class EnhancedMD:
 		return paragraph_content
 
 	@staticmethod
-	def _process_docx_run(docx_run: DocxRun) -> List[ee.Content]:
+	def _process_docx_run(docx_run: DocxRun) -> list[ee.Content]:
 		"""
 
 		:param docx_run:
@@ -278,8 +277,8 @@ class EnhancedMD:
 			address=docx_hyperlink.address, fragment=docx_hyperlink.fragment
 		)
 
-	def _concat_run_content_to_content_list(self, content_list: List[ee.Content | ee.Hyperlink],
-	                                        run_content: List[ee.Content]) -> List[ee.Content | ee.Hyperlink]:
+	def _concat_run_content_to_content_list(self, content_list: list[ee.Content | ee.Hyperlink],
+	                                        run_content: list[ee.Content]) -> list[ee.Content | ee.Hyperlink]:
 		"""
 
 		:param content_list:
@@ -325,7 +324,7 @@ class EnhancedMD:
 			and content_a.font_style == content_b.font_style
 		)
 
-	def _detect_directed_element_type_and_hierarchy_level(self, docx_paragraph: DocxParagraph) -> Tuple[str, int]:
+	def _detect_directed_element_type_and_hierarchy_level(self, docx_paragraph: DocxParagraph) -> tuple[str, int]:
 		"""
 		:param docx_paragraph:
 		:return directed_element_type, hierarchy_level:
@@ -355,7 +354,7 @@ class EnhancedMD:
 			else:
 				# If both heading hierarchy level are 0 print correspondent warning and solve conflict
 				logging.info(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
-				                f"\n\t(text):\n\t\t{repr(docx_paragraph.text)}")
+				             f"\n\t(text):\n\t\t{repr(docx_paragraph.text)}")
 				return self._conflict_undefined_directed_element_type()
 
 	@staticmethod
@@ -395,14 +394,8 @@ class EnhancedMD:
 
 		if len(self.aux_doc_graph) > 0:  # Check the document is not empty
 			first_directed_element = self._get_aux_doc_graph_element_and_increment()
-
-			# Avoid starting with directed element with undefined hierarchy level
-			while first_directed_element.hierarchy_level == 0:  # will have to delete this later
-				first_directed_element = self._get_aux_doc_graph_element_and_increment()
-
 			first_directed_element.item = [0]
-			if first_directed_element.has_num_id:
-				first_directed_element.num_id = 1
+			self._reset_numbering(directed_element=first_directed_element)
 
 			self._build_doc_subgraph(curr_directed_element=first_directed_element)
 		else:
@@ -480,7 +473,7 @@ class EnhancedMD:
 		curr_directed_element.add_child(next_directed_element)
 		# Reset non heading directed element item and num id
 		next_directed_element.item = [0]
-		self._reset_num_id(directed_element=next_directed_element)
+		self._reset_numbering(directed_element=next_directed_element)
 
 		# Continue recursive doc graph exploration
 		return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -501,17 +494,16 @@ class EnhancedMD:
 			if curr_directed_element.hierarchy_level < next_directed_element.hierarchy_level:
 				curr_directed_element.add_child(next_directed_element)
 				next_directed_element.item = self._get_item_child_hierarchy_level(prev_item=curr_directed_element.item)
-				# Reset num id
-				if next_directed_element.has_num_id:
-					next_directed_element.num_id = 1
+				self._reset_numbering(directed_element=next_directed_element)
 
 			elif curr_directed_element.hierarchy_level == next_directed_element.hierarchy_level:
-
 				if curr_directed_element.parent is not None:
 					curr_directed_element.parent.add_child(next_directed_element)
 
 				next_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-				self._set_num_id(directed_element=next_directed_element, other_directed_element=curr_directed_element)
+				self._set_numbering(
+					directed_element=next_directed_element, other_directed_element=curr_directed_element
+				)
 
 			# Continue recursive graph exploration
 			return self._build_doc_subgraph(curr_directed_element=next_directed_element)
@@ -551,7 +543,7 @@ class EnhancedMD:
 			curr_directed_element.parent.add_child(back_directed_element)
 
 		back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-		self._set_num_id(directed_element=back_directed_element, other_directed_element=curr_directed_element)
+		self._set_numbering(directed_element=back_directed_element, other_directed_element=curr_directed_element)
 
 		# Continue recursive doc graph exploration
 		return self._build_doc_subgraph(curr_directed_element=back_directed_element)
@@ -575,7 +567,7 @@ class EnhancedMD:
 				curr_directed_element.parent.add_child(back_directed_element)
 
 			back_directed_element.item = self._get_item_same_hierarchy_level(prev_item=curr_directed_element.item)
-			self._set_num_id(directed_element=back_directed_element, other_directed_element=curr_directed_element)
+			self._set_numbering(directed_element=back_directed_element, other_directed_element=curr_directed_element)
 
 			# Continue recursive doc graph exploration
 			return self._build_doc_subgraph(curr_directed_element=back_directed_element)
@@ -597,7 +589,7 @@ class EnhancedMD:
 			# Append other directed element to doc graph root
 			# (will actually be appended in next _build_doc_subgraph call)
 			other_directed_element.item = self._get_item_same_hierarchy_level(prev_item=last_root_directed_element.item)
-			self._set_num_id(directed_element=other_directed_element, other_directed_element=last_root_directed_element)
+			self._set_numbering(directed_element=other_directed_element, other_directed_element=last_root_directed_element)
 
 			# Continue recursive doc graph exploration from the root
 			return self._build_doc_subgraph(curr_directed_element=other_directed_element)
@@ -614,7 +606,7 @@ class EnhancedMD:
 		return aux_doc_graph_element
 
 	@staticmethod
-	def _get_item_same_hierarchy_level(prev_item: List[int]) -> List[int]:
+	def _get_item_same_hierarchy_level(prev_item: list[int]) -> list[int]:
 		"""
 
 		:param prev_item:
@@ -624,7 +616,7 @@ class EnhancedMD:
 		return prev_item[:-1] + [prev_item[-1] + 1]
 
 	@staticmethod
-	def _get_item_child_hierarchy_level(prev_item: List[int]) -> List[int]:
+	def _get_item_child_hierarchy_level(prev_item: list[int]) -> list[int]:
 		"""
 
 		:param prev_item:
@@ -633,27 +625,35 @@ class EnhancedMD:
 
 		return prev_item.copy() + [0]  # Make a copy to avoid pass by reference errors
 
-	@staticmethod
-	def _reset_num_id(directed_element: ee.DirectedElement):
+	def _reset_numbering(self, directed_element: ee.DirectedElement):
 		"""
 
 		:param directed_element:
 		"""
 
-		if directed_element.has_num_id:
-			directed_element.num_id = 1
+		if directed_element.has_numbering:
+			directed_element.numbering_index = self._get_start_numbering(directed_element=directed_element)
+			directed_element.construct_formatted_numbering()
 
-	@staticmethod
-	def _set_num_id(directed_element: ee.DirectedElement, other_directed_element: ee.DirectedElement):
+	def _set_numbering(self, directed_element: ee.DirectedElement, other_directed_element: ee.DirectedElement):
 		"""
 
 		:param directed_element:
 		:param other_directed_element:
 		"""
 
-		if directed_element.has_num_id:
-			directed_element.num_id = (1 if not other_directed_element.has_num_id
-			                           else other_directed_element.num_id + 1)
+		if directed_element.has_numbering:
+			directed_element.numbering_index = (self._get_start_numbering(directed_element=directed_element)
+			                                    if not other_directed_element.has_numbering
+			                                    else other_directed_element.numbering_index + 1)
+			directed_element.construct_formatted_numbering()
+
+	@staticmethod
+	def _get_start_numbering(directed_element: ee.DirectedElement) -> int:
+		if directed_element.numbering_index_in_text is not None:
+			return directed_element.numbering_index_in_text
+		else:
+			return directed_element.numbering_xml_info["start"]
 
 	def build_doc_flat(self):
 		"""
@@ -691,10 +691,10 @@ class EnhancedMD:
 			                    else len(directed_element.heading_item))
 			space = "·"*5*(len(directed_element.item) + heading_item_len - 1)
 			marker = "" if heading_item_len == 0 and len(directed_element.item) == 1 else "+----"
-			numbering = "" if directed_element.num_id is None else f"({directed_element.num_id})"
+			numbering = "" if not directed_element.has_numbering else f"${directed_element.numbering}$ "
 			self.repr_array.append(f"{directed_element_type}|{space}{marker}"
-			                       f"{directed_element.item}${directed_element.style}$"
-			                       f"{numbering}->{repr(directed_element.text)}")
+			                       f"{directed_element.item}({directed_element.style}) {numbering}"
+			                       f"->{repr(directed_element.text)}")
 
 	def visualize_doc_graph(self):
 		"""
@@ -721,7 +721,7 @@ class EnhancedMD:
 		i += 1
 		node_x_position = (0 if isinstance(node, ee.Heading) else len(self.heading_styles.keys())-1) + len(node.item)
 		node_color = (0 if isinstance(node, ee.Heading) else 2)
-		node_color = (node_color+1 if node.has_num_id else node_color)
+		node_color = (node_color+1 if node.has_numbering else node_color)
 		color_map = {0: "skyblue", 1: "blue", 2: "lightgray", 3: "gray"}
 		node_color = color_map[node_color]
 		G.add_node(
@@ -737,28 +737,3 @@ class EnhancedMD:
 			for child in node.children:
 				i = self._visualization_add_nodes_and_edges(G, child, i)
 		return i
-
-	def conditional_num_id_reindex_on_heading_regex(self, conditional_heading_regex: list):
-		"""
-
-		:param conditional_heading_regex:
-		"""
-
-		# TODO: Generalize the concept
-
-		reset_num_id = False
-		incr_num_id = 1
-		for directed_element in self.doc_flat:
-			if isinstance(directed_element, ee.Heading):
-				for pattern in conditional_heading_regex:
-					if re.search(pattern, directed_element.text):
-						reset_num_id = True
-
-			elif (isinstance(directed_element, ee.Paragraph)
-			      and len(directed_element.item) == 1 and directed_element.has_num_id):
-				if reset_num_id:
-					incr_num_id = 1
-					reset_num_id = False
-
-				directed_element.num_id = incr_num_id
-				incr_num_id += 1
