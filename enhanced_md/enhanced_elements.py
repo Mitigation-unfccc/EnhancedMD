@@ -293,16 +293,30 @@ class DirectedElement(BaseElement):
     def _obtain_numbering_xml_info(self, num_id: str, ilvl: str) -> dict:
         abstract_num_id = self.docx_element.part.numbering_part._element.xpath(
             f".//w:num[@w:numId={num_id}]/w:abstractNumId/@w:val")[0]
-        return {
-            "num_id": num_id,
-            "ilvl": ilvl,
-            "type": self.docx_element.part.numbering_part._element.xpath(
-                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:numFmt/@w:val")[0],
-            "format": self.docx_element.part.numbering_part._element.xpath(
-                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:lvlText/@w:val")[0],
-            "start": int(self.docx_element.part.numbering_part._element.xpath(
-                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:start/@w:val")[0])
-        }
+        print(num_id, ilvl, abstract_num_id, self.text)
+
+        #
+        if len(self.docx_element.part.numbering_part._element.xpath(
+                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]")) == 0:
+            style_link_id = self.docx_element.part.numbering_part._element.xpath(
+                f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:numStyleLink/@w:val")[0]
+            style_link = self.docx_element.part.styles._element.xpath(f".//w:style[@w:styleId='{style_link_id}']")[0]
+            num_id = style_link.xpath(".//w:numPr/w:numId/@w:val")[0]
+            _ilvl = style_link.xpath(".//w:numPr/w:ilvl/@w:val")
+            if len(_ilvl) != 0:
+                ilvl = _ilvl[0]
+            return self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
+        else:
+            return {
+                "num_id": num_id,
+                "ilvl": ilvl,
+                "type": self.docx_element.part.numbering_part._element.xpath(
+                    f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:numFmt/@w:val")[0],
+                "format": self.docx_element.part.numbering_part._element.xpath(
+                    f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:lvlText/@w:val")[0],
+                "start": int(self.docx_element.part.numbering_part._element.xpath(
+                    f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:start/@w:val")[0])
+            }
 
     def _overriden_inexisting_numbering(self, num_id: str, ilvl: str):
         # Detect whether numPr exists inside style
@@ -312,14 +326,14 @@ class DirectedElement(BaseElement):
                 "num_id": num_id,
                 "ilvl": ilvl,
                 "type": "decimal",
-                "format": "%1",
+                "format": f"%{int(ilvl)+1}",
                 "start": 1
-            }
+            }  # TODO: Upgrade logic
         else:
             num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")[0]
             ilvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")
             if len(ilvl) == 0:
-                ilvl = "0"
+                ilvl = "0"  # TODO: Upgrade logic in case missing ilvl
             else:
                 ilvl = ilvl[0]
             self.numbering_xml_info = self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
@@ -340,7 +354,6 @@ class DirectedElement(BaseElement):
 
         # Separate format string
         format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
-        print(self.numbering_xml_info["format"], self.text)
 
         # ^: Ensures match at the beginning of the string
         numbering_pattern = r"^"
