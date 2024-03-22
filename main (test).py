@@ -41,7 +41,7 @@ if __name__ == "__main__":
         }
     }
 
-    file_path = "cmp2022_09_a01.docx"
+    file_path = "cp2022_10a01.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=codoc_styles)
     emd()
     print(emd)

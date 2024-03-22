@@ -291,6 +291,7 @@ class DirectedElement(BaseElement):
         return num_id, ilvl
 
     def _obtain_numbering_xml_info(self, num_id: str, ilvl: str) -> dict:
+        print(num_id, ilvl, self.text)
         abstract_num_id = self.docx_element.part.numbering_part._element.xpath(
             f".//w:num[@w:numId={num_id}]/w:abstractNumId/@w:val")[0]
 
@@ -330,10 +331,12 @@ class DirectedElement(BaseElement):
             }  # TODO: Upgrade logic
         else:
             num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")
-            if len(num_id) == 0:
+            if (len(num_id) == 0
+                or len(self.docx_element.part.numbering_part._element.xpath(f".//w:num[@w:numId={num_id[0]}]")) == 0):
                 based_style_id = self.docx_element.style._element.xpath(".//w:basedOn/@w:val")[0]
                 based_style = self.docx_element.part.styles._element.xpath(
                     f".//w:style[@w:styleId='{based_style_id}']")[0]
+                print(based_style_id, self.text)
                 num_id = based_style.xpath(".//w:numPr/w:numId/@w:val")[0]
             else:
                 num_id = num_id[0]
