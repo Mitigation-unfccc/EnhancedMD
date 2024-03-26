@@ -29,19 +29,20 @@ if __name__ == "__main__":
     styles = {
         "heading": {
             0: [],
-            1: ["SDMTitle1"],
+            1: ["SDMTitle1", "SDMTOCHeading"],
             2: ["SDMTitle2", "SDMDocInfoTitle"],
             3: ["MRHead1"],
-            4: ["MRHead2"]
+            4: ["MRHead2", "Caption"]
         },
         "paragraph": {
             0: ["Normal"],
-            1: ["SDMTiInfo", "SDMPara"],
-            2: ["SDMSubPara1"]
+            1: ["SDMTiInfo", "SDMPara", "MRAnnexNumbering"],
+            2: ["SDMSubPara1", "toc 1"],
+            3: ["SDMSubPara2", "toc 2", "SDMTableBoxFigureFootnote"]
         }
     }
 
-    file_path = "cp2022_10a01.docx"
-    emd = EnhancedMD(docx_file_path=file_path, styles=codoc_styles)
+    file_path = "EB114 Internal meeting report_final.docx"
+    emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
     print(emd)

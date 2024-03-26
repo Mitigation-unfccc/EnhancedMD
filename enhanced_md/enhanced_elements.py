@@ -291,7 +291,6 @@ class DirectedElement(BaseElement):
         return num_id, ilvl
 
     def _obtain_numbering_xml_info(self, num_id: str, ilvl: str) -> dict:
-        print(num_id, ilvl, self.text)
         abstract_num_id = self.docx_element.part.numbering_part._element.xpath(
             f".//w:num[@w:numId={num_id}]/w:abstractNumId/@w:val")[0]
 

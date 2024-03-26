@@ -287,7 +287,7 @@ class EnhancedMD:
 		"""
 
 		# Only if content_list is not empty and previous content is content class
-		if len(content_list) and isinstance(content_list[-1], ee.Content):
+		if len(content_list) and len(run_content) and isinstance(content_list[-1], ee.Content):
 			# Detect whether the special concat is needed
 			is_special_concat = self._detect_special_content_concat(
 				content_a=content_list[-1], content_b=run_content[0]
@@ -352,7 +352,7 @@ class EnhancedMD:
 			if paragraph_hl is None:
 				return "heading", 1
 			else:
-				# If both heading hierarchy level are 0 print correspondent warning and solve conflict
+				# If both heading hierarchy level are 0 display correspondent warning and solve conflict
 				logging.info(f"\tUndefined directed element type conflict for: {docx_paragraph.style.name}"
 				             f"\n\t(text):\n\t\t{repr(docx_paragraph.text)}")
 				return self._conflict_undefined_directed_element_type()
