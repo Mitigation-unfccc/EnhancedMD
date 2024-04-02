@@ -14,15 +14,16 @@ if __name__ == "__main__":
             2: ["Reg_H__Ch_G"],
             3: ["Reg_H_1_G", "_ H_1_G"],
             4: ["Reg_H_2/3_G"],
-            5: ["Reg_H_4_G"]
+            5: ["Reg_H_4_G"],
+            6: ["Reg_H_5_G"]
         },
         "paragraph": {
             0: ["Normal", "Default"],
             1: ["Reg_Single Txt_G", "_ Single Txt_G", "Anno_ Single Txt_G"],
             2: ["Reg_Single Txt_G2"],
             3: ["Reg_Single Txt_G3"],
-            4: ["List Paragraph", "toc 1"],
-            5: ["toc 2"]
+            4: ["List Paragraph", "toc 1", "FC1"],
+            5: ["toc 2", "Footnote Table"]
         }
     }
 
@@ -42,7 +43,7 @@ if __name__ == "__main__":
         }
     }
 
-    file_path = "EB114 Internal meeting report_final.docx"
-    emd = EnhancedMD(docx_file_path=file_path, styles=styles)
+    file_path = "cp2022_10a02.docx"
+    emd = EnhancedMD(docx_file_path=file_path, styles=codoc_styles)
     emd()
     print(emd)

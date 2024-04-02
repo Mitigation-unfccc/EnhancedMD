@@ -329,16 +329,7 @@ class DirectedElement(BaseElement):
                 "start": 1
             }  # TODO: Upgrade logic
         else:
-            num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")
-            if (len(num_id) == 0
-                or len(self.docx_element.part.numbering_part._element.xpath(f".//w:num[@w:numId={num_id[0]}]")) == 0):
-                based_style_id = self.docx_element.style._element.xpath(".//w:basedOn/@w:val")[0]
-                based_style = self.docx_element.part.styles._element.xpath(
-                    f".//w:style[@w:styleId='{based_style_id}']")[0]
-                print(based_style_id, self.text)
-                num_id = based_style.xpath(".//w:numPr/w:numId/@w:val")[0]
-            else:
-                num_id = num_id[0]
+            num_id = self._get_based_on_style_num_id(style_element=self.docx_element.style._element)
             ilvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")
             if len(ilvl) == 0:
                 ilvl = "0"  # TODO: Upgrade logic in case missing ilvl
@@ -347,6 +338,18 @@ class DirectedElement(BaseElement):
             self.numbering_xml_info = self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
 
         self._detect_numbering_in_text()
+
+    def _get_based_on_style_num_id(self, style_element):
+        num_id = style_element.xpath(".//w:numPr/w:numId/@w:val")
+        if (len(num_id) == 0
+                or len(self.docx_element.part.numbering_part._element.xpath(f".//w:num[@w:numId={num_id[0]}]")) == 0):
+            # Get based_on style
+            based_style_id = style_element.xpath(".//w:basedOn/@w:val")[0]
+            based_style = self.docx_element.part.styles._element.xpath(
+                f".//w:style[@w:styleId='{based_style_id}']")[0]
+            return self._get_based_on_style_num_id(style_element=based_style)
+        else:
+            return num_id[0]
 
     def _detect_numbering_in_text(self):
         numbering_pattern = self._construct_numbering_pattern_regex()
