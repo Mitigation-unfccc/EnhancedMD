@@ -281,7 +281,11 @@ class DirectedElement(BaseElement):
                 self.has_numbering = False
                 return None, None  # Return None to signal has_numbering already assigned and stop procedure
 
-            num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")[0]
+            num_id = self.docx_element.style._element.xpath(".//w:numPr/w:numId/@w:val")
+            if len(num_id) == 0:
+                num_id = self._get_based_on_style_num_id(style_element=self.docx_element.style._element)
+            else:
+                num_id = num_id[0]
             ilvl = self.docx_element.style._element.xpath(".//w:numPr/w:ilvl/@w:val")
             if len(ilvl) == 0:
                 ilvl = "0"
