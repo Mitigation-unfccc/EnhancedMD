@@ -251,7 +251,7 @@ class DirectedElement(BaseElement):
         next_element.previous = self
 
     def construct_identifier_string(self) -> str:
-        return ".".join(map(str, [x+1 for x in self.item]))
+        return f"{'.'.join(map(str, [x+1 for x in self.item]))}{f' ({self.numbering})' if self.numbering is not None else ''}"
 
     def _has_numbering(self):
         num_id, ilvl = self._obtain_num_id_and_ilvl()
@@ -475,8 +475,8 @@ class Paragraph(DirectedElement):
             next_element.heading_item = self.heading_item
 
     def construct_identifier_string(self) -> str:
-        return (f"({'.'.join(map(str, self.heading_item)) if self.heading_item is not None else 'NONE'})"
-                f"\nP_{super().construct_identifier_string()}")
+        return (f"{' '.join(map(str, [x+1 for x in self.heading_item])) if self.heading_item is not None else 'NONE'}"
+                f".{super().construct_identifier_string()}")
 
 
 class Table(DirectedElement):

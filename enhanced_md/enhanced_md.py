@@ -692,7 +692,7 @@ class EnhancedMD:
 			space = "·"*5*(len(directed_element.item) + heading_item_len - 1)
 			marker = "" if heading_item_len == 0 and len(directed_element.item) == 1 else "+----"
 			numbering = "" if not directed_element.has_numbering else f"${directed_element.numbering}$ "
-			self.repr_array.append(f"{directed_element_type}|{space}{marker}"
+			self.repr_array.append(f"@@@{directed_element.construct_identifier_string()}@@@{directed_element_type}|{space}{marker}"
 			                       f"{directed_element.item}({directed_element.style}) {numbering}"
 			                       f"->{repr(directed_element.text)}")
 
