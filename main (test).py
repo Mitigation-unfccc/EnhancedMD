@@ -32,7 +32,7 @@ if __name__ == "__main__":
             0: [],
             1: ["SDMTitle1", "SDMTOCHeading"],
             2: ["SDMTitle2", "SDMDocInfoTitle"],
-            3: ["MRHead1"],
+            3: ["MRHead1", "MRAnnTitle"],
             4: ["MRHead2", "Caption"]
         },
         "paragraph": {
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         }
     }
 
-    file_path = "cp2022_10a03.docx"
-    emd = EnhancedMD(docx_file_path=file_path, styles=codoc_styles)
+    file_path = "document.docx"
+    emd = EnhancedMD(docx_file_path=file_path, styles=styles)
     emd()
     print(emd)

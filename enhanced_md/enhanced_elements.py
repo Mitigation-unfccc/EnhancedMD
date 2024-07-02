@@ -251,7 +251,7 @@ class DirectedElement(BaseElement):
         next_element.previous = self
 
     def construct_identifier_string(self) -> str:
-        return ".".join(map(str, self.item))
+        return ".".join(map(str, [x+1 for x in self.item]))
 
     def _has_numbering(self):
         num_id, ilvl = self._obtain_num_id_and_ilvl()
