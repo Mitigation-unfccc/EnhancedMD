@@ -475,7 +475,7 @@ class Paragraph(DirectedElement):
             next_element.heading_item = self.heading_item
 
     def construct_identifier_string(self) -> str:
-        return (f"{'.'.join(map(str, [x+1 for x in self.heading_item])) if self.heading_item is not None else 'NONE'}"
+        return (f"{'.'.join(map(str, [self.heading_item[0]] + [x+1 for x in self.heading_item[1:]])) if self.heading_item is not None else 'NONE'}"
                 f".{super().construct_identifier_string()}")
 
 
