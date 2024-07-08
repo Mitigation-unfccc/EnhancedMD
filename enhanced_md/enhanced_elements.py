@@ -310,6 +310,8 @@ class DirectedElement(BaseElement):
                 ilvl = _ilvl[0]
             return self._obtain_numbering_xml_info(num_id=num_id, ilvl=ilvl)
         else:
+            start_query = self.docx_element.part.numbering_part._element.xpath(
+                    f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:start/@w:val")
             return {
                 "num_id": num_id,
                 "ilvl": ilvl,
@@ -317,8 +319,7 @@ class DirectedElement(BaseElement):
                     f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:numFmt/@w:val")[0],
                 "format": self.docx_element.part.numbering_part._element.xpath(
                     f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:lvlText/@w:val")[0],
-                "start": int(self.docx_element.part.numbering_part._element.xpath(
-                    f".//w:abstractNum[@w:abstractNumId={abstract_num_id}]/w:lvl[@w:ilvl={ilvl}]/w:start/@w:val")[0])
+                "start": int(start_query[0]) if len(start_query) > 0 else 1
             }
 
     def _overriden_inexisting_numbering(self, num_id: str, ilvl: str):
