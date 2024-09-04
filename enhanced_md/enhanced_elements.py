@@ -403,7 +403,8 @@ class DirectedElement(BaseElement):
     def _construct_numbering_str(self) -> str:
         # Separate format string
         format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
-        print("!!!", format_str)
+        
+        ancestor_numbering_indexes = self._get_ancestors_numbering_index()
         numbering_str = ""
         for format_str_part in format_str:
             if format_str_part[0] == "%":
@@ -416,14 +417,17 @@ class DirectedElement(BaseElement):
                     _numbering_xml_info = self._obtain_numbering_xml_info(
                         num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
                     )
-                    numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](self.item[int(_ilvl)]+1)
+                    numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](ancestor_numbering_indexes[int(_ilvl)])
             else:
                 numbering_str += format_str_part
 
         return numbering_str
 
     def _get_ancestors_numbering_index(self) -> list[int]:
-        return []
+        if self.parent is None:
+            return [self.numbering_index]
+
+        return self.parent._get_ancestors_numbering_index() + [self.numbering_index]
 
     def _get_numbering_index_in_text(self, numbering_pattern: str) -> int:
         match = re.match(numbering_pattern, self.text)
