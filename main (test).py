@@ -62,7 +62,7 @@ if __name__ == "__main__":
         "ignore": ["SDMTOCHeading", "toc 1", "toc 2"]
     }
 
-    file_path = ".//SB004_report.docx"
+    file_path = ".//SB008_internal_report.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=S_EB_SB)
     emd()
     print(emd)
