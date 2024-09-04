@@ -7,9 +7,6 @@ from docx.text.run import Run as DocxRun
 from docx.text.hyperlink import Hyperlink as DocxHyperlink
 from docx.table import Table as DocxTable
 
-import networkx as nx
-import matplotlib.pyplot as plt
-
 import enhanced_md.enhanced_elements as ee
 from enhanced_md.exceptions import UndefinedStyleFoundError, EmptyDocxDocument
 
@@ -100,6 +97,12 @@ class EnhancedMD:
 			self._check_style_dict(style_dict=self.paragraph_styles, element_name="paragraph")
 		except KeyError:
 			raise KeyError("styles dictionary missing \"paragraph\"")
+		
+		# Check ignore styles
+		try:
+			self.ignore_styles = styles["ignore"]
+		except KeyError:
+			raise KeyError("styles dictionary missing \"ignore\"")
 
 		# TODO: Check that styles for different elements are not the same (except level 0)
 
@@ -162,7 +165,11 @@ class EnhancedMD:
 			# Detect whether document content is paragraph or table and process accordingly
 			if isinstance(docx_content, DocxParagraph):
 				# Only process paragraphs which are not empty or only consist of space, tabular or newline characters
-				if len(docx_content.text) and not all(c in " \t\n" for c in docx_content.text):
+				# As well as only processing paragraphs with no styles to be ignored
+				if (
+					(len(docx_content.text) and not all(c in " \t\n" for c in docx_content.text))
+					and docx_content.style.name not in self.ignore_styles
+				):
 					self._process_docx_paragraph(docx_paragraph=docx_content)
 
 			if isinstance(docx_content, DocxTable):
@@ -695,45 +702,3 @@ class EnhancedMD:
 			self.repr_array.append(f"@@@{directed_element.construct_identifier_string()}@@@{directed_element_type}|{space}{marker}"
 			                       f"{directed_element.item}({directed_element.style}) {numbering}"
 			                       f"->{repr(directed_element.text)}")
-
-	def visualize_doc_graph(self):
-		"""
-
-		"""
-
-		G = nx.DiGraph()
-
-		i = 0
-		for node in self.doc_graph:
-			i = self._visualization_add_nodes_and_edges(G, node, i)
-
-		plt.figure(figsize=(10, 8))
-		nx.draw(
-			G,
-			node_size=250, node_color=[G.nodes[node]['color'] for node in G.nodes()],
-			pos=nx.get_node_attributes(G, "pos"),
-			edge_color=[G[u][v]["color"] for u, v in G.edges()], arrows=True,
-			with_labels=True , font_size=7,
-		)
-		plt.show()
-
-	def _visualization_add_nodes_and_edges(self, G, node, i):
-		i += 1
-		node_x_position = (0 if isinstance(node, ee.Heading) else len(self.heading_styles.keys())-1) + len(node.item)
-		node_color = (0 if isinstance(node, ee.Heading) else 2)
-		node_color = (node_color+1 if node.has_numbering else node_color)
-		color_map = {0: "skyblue", 1: "blue", 2: "lightgray", 3: "gray"}
-		node_color = color_map[node_color]
-		G.add_node(
-			node.construct_identifier_string(), pos=(node_x_position, len(self.aux_doc_graph) - i), color=node_color
-		)
-		if node.parent is not None:
-			G.add_edge(node.parent.construct_identifier_string(),
-			           node.construct_identifier_string(), color="black")
-		if node.next is not None:
-			G.add_edge(node.construct_identifier_string(),
-			           node.next.construct_identifier_string(), color="b")
-		if node.children is not None:
-			for child in node.children:
-				i = self._visualization_add_nodes_and_edges(G, child, i)
-		return i

@@ -403,7 +403,7 @@ class DirectedElement(BaseElement):
     def _construct_numbering_str(self) -> str:
         # Separate format string
         format_str = re.findall(r"%\d+|[^%]+", self.numbering_xml_info["format"])
-
+        print("!!!", format_str)
         numbering_str = ""
         for format_str_part in format_str:
             if format_str_part[0] == "%":
@@ -416,7 +416,7 @@ class DirectedElement(BaseElement):
                     _numbering_xml_info = self._obtain_numbering_xml_info(
                         num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
                     )
-                    numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](0)
+                    numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](self.item[int(_ilvl)]+1)
             else:
                 numbering_str += format_str_part
 
@@ -476,7 +476,7 @@ class Paragraph(DirectedElement):
             next_element.heading_item = self.heading_item
 
     def construct_identifier_string(self) -> str:
-        return (f"{'.'.join(map(str, [self.heading_item[0]] + [x+1 for x in self.heading_item[1:]])) if self.heading_item is not None else 'NONE'}"
+        return (f"{'.'.join(map(str, [self.heading_item[0]+1] + [x+1 for x in self.heading_item[1:]])) if self.heading_item is not None else 'NONE'}"
                 f".{super().construct_identifier_string()}")
 
 
