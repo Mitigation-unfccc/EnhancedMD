@@ -57,12 +57,12 @@ if __name__ == "__main__":
             2: ["Reg_Single Txt_G2", "List2", "SDMSubPara1"],
             3: ["Reg_Single Txt_G3"],
             4: ["List Paragraph", "SDMSubPara2", "SDMTableBoxFigureFootnote", "Footnote Table",
-                "FC1", "Reg_H_5_G", "Reg_H_4_G", "Caption"]
+                "FC1", "Reg_H_5_G", "Reg_H_4_G", "Caption", "No Spacing"]
         },
         "ignore": ["SDMTOCHeading", "toc 1", "toc 2"]
     }
 
-    file_path = ".//SB008_internal_report.docx"
+    file_path = ".//cp2018_10a01.docx"
     emd = EnhancedMD(docx_file_path=file_path, styles=S_EB_SB)
     emd()
     print(emd)

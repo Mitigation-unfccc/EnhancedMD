@@ -267,9 +267,15 @@ class DirectedElement(BaseElement):
 
     def _obtain_num_id_and_ilvl(self) -> tuple[str | None, str | None]:
 
-        # Detect whether style numPr has been overridden in pPr and Obtain numId and ilvl inside numPr
+        # Detect whether style numPr has been overridden in pPr and obtain numId and ilvl inside numPr
         if len(self.docx_element._element.xpath(".//w:numPr")) != 0:
+            
             num_id = self.docx_element._element.xpath(".//w:numPr/w:numId/@w:val")[0]
+            if num_id == "0":
+                # numId cannot be 0, if present indicates numbering artifact
+                self.has_numbering = False
+                return None, None
+            
             ilvl = self.docx_element._element.xpath(".//w:numPr/w:ilvl/@w:val")
             if len(ilvl) == 0:
                 ilvl = "0"
@@ -349,9 +355,12 @@ class DirectedElement(BaseElement):
         if (len(num_id) == 0
                 or len(self.docx_element.part.numbering_part._element.xpath(f".//w:num[@w:numId={num_id[0]}]")) == 0):
             # Get based_on style
-            based_style_id = style_element.xpath(".//w:basedOn/@w:val")[0]
+            based_style_id = style_element.xpath(".//w:basedOn/@w:val")
+            if len(based_style_id) == 0:
+                return None
+
             based_style = self.docx_element.part.styles._element.xpath(
-                f".//w:style[@w:styleId='{based_style_id}']")[0]
+                f".//w:style[@w:styleId='{based_style_id[0]}']")[0]
             return self._get_based_on_style_num_id(style_element=based_style)
         else:
             return num_id[0]
