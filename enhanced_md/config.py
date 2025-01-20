@@ -36,7 +36,7 @@ NUMBERING_TYPE_INT_TO_STR = {
     "lowerRoman": lambda x: roman.toRoman(x).lower(),
     "upperRoman": lambda x: roman.toRoman(x),
     "chicago": "TODO",
-    "none": "",
+    "none": lambda x: "",
 }
 
 

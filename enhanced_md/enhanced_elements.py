@@ -418,7 +418,9 @@ class DirectedElement(BaseElement):
         for format_str_part in format_str:
             if format_str_part[0] == "%":
                 _ilvl = str(int(format_str_part[1:]) - 1)
+                print(_ilvl, ancestor_numbering_indexes)
                 if _ilvl == self.numbering_xml_info["ilvl"]:
+                    print(self.numbering_xml_info["type"])
                     numbering_str += NUMBERING_TYPE_INT_TO_STR[self.numbering_xml_info["type"]](
                         self.numbering_index
                     )
@@ -426,6 +428,7 @@ class DirectedElement(BaseElement):
                     _numbering_xml_info = self._obtain_numbering_xml_info(
                         num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
                     )
+                    print(_numbering_xml_info["type"])                    
                     numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](ancestor_numbering_indexes[int(_ilvl)])
             else:
                 numbering_str += format_str_part

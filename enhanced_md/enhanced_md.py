@@ -414,6 +414,7 @@ class EnhancedMD:
 		:param curr_directed_element:
 		:return need_backtrack:
 		"""
+		# print(curr_directed_element.text, curr_directed_element.style)
 
 		# If no parent has been assigned to the current directed element, means that it is child of doc graph root
 		if curr_directed_element.parent is None:
@@ -653,6 +654,7 @@ class EnhancedMD:
 			directed_element.numbering_index = (self._get_start_numbering(directed_element=directed_element)
 			                                    if not other_directed_element.has_numbering
 			                                    else other_directed_element.numbering_index + 1)
+			print(directed_element.text, directed_element.style, directed_element.parent)
 			directed_element.construct_formatted_numbering()
 
 	@staticmethod
