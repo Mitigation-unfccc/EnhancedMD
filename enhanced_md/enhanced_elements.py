@@ -428,8 +428,11 @@ class DirectedElement(BaseElement):
                     _numbering_xml_info = self._obtain_numbering_xml_info(
                         num_id=self.numbering_xml_info["num_id"], ilvl=_ilvl
                     )
-                    print(_numbering_xml_info["type"])                    
-                    numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](ancestor_numbering_indexes[int(_ilvl)])
+                    try:
+                        ancestor_index = ancestor_numbering_indexes[int(_ilvl)] 
+                    except IndexError:
+                        ancestor_index = 0
+                    numbering_str += NUMBERING_TYPE_INT_TO_STR[_numbering_xml_info["type"]](ancestor_index)
             else:
                 numbering_str += format_str_part
 

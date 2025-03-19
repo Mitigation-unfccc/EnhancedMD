@@ -69,7 +69,7 @@ if __name__ == "__main__":
 			2: ["Heading 1", "SDMHead1", "SDMTitle1", "SDMTOCHeading", "_ H _Ch_G"], # 2: Heading 1 Equivalents
 			3: ["Heading 2", "Reg_H__Ch_G", "SDMTitle2", "PAHead1", "SDMHead2", "MainSubTitle"], # 3: Heading 2 Equivalents
 			4: ["Heading 3", "Reg_H_1_G", "_ H_1_G", "MRHead1", "PAHead2", "ProposedAgendaHeading", "SDMHead3"], # 4: Heading 3 Equivalents
-			5: ["Heading 4", "Reg_H_2/3_G", "MRHead2", "_ H_2/3_G", "SDMHead4"], # 5: Heading 4 Equivalents
+			5: ["Heading 4", "Reg_H_2/3_G", "MRHead2", "_ H_2/3_G", "SDMHead4", "PASubhead1"], # 5: Heading 4 Equivalents
 			6: ["Caption", "SDMDocRef", "FC2", "endnote text", "Anno _ H_CH_G"] # 6: Captions / Misc. / Specialized
 		},
 		"paragraph": {
@@ -81,7 +81,7 @@ if __name__ == "__main__":
 		},
 		"ignore": []
 	}
-	file_path = "A6.4-PROC-METH-001.docx"
+	file_path = "A6.4-PROC-GOV-005_NOT WORKING.docx"
 	emd = EnhancedMD(docx_file_path=file_path, styles=STYLES)
 	emd()
 	print(emd)
